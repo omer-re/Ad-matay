@@ -1,0 +1,2 @@
+venv name is ad_matay_venv, it's a conda venv.
+`conda activate ad_matay_venv`
