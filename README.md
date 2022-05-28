@@ -1,6 +1,6 @@
 # Ad-matay
 Skipping the commercials when watching a recorded tv shows
-
+https://docs.google.com/presentation/d/1NYAWuKAkZKxQqUo0KvtpIrrQ_zn0s99fGmTEXpWkv1g/edit#slide=id.p10
 
 ## Speaker identification resources:
 https://github.com/jurgenarias/Portfolio/tree/master/Voice%20Classification
