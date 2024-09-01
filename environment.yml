@@ -1,0 +1,16 @@
+name: ad_env
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.10
+  - numpy
+  - matplotlib
+  - opencv
+  - pip
+  - pip:
+    - torch
+    - torchvision
+    - torchaudio
+    - ultralytics
