@@ -67,27 +67,27 @@ def apply_perspective_transform_and_crop(frame, src_pts, target_aspect_ratio=ASP
     matrix = cv2.getPerspectiveTransform(src_pts_ordered, dst_pts)
     return cv2.warpPerspective(frame, matrix, (target_width, target_height))
 
-def refine_mask(mask):
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, KERNEL_SIZE)
-    return cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+# def refine_mask(mask):
+#     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, KERNEL_SIZE)
+#     return cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-def add_margins_to_corners(corners, img_shape, margin_percent=MARGIN_PERCENT):
-    corners = np.array(corners, dtype="float32")
-    min_x = np.min(corners[:, 0])
-    max_x = np.max(corners[:, 0])
-    min_y = np.min(corners[:, 1])
-    max_y = np.max(corners[:, 1])
-    width = max_x - min_x
-    height = max_y - min_y
-    x_margin = min(width * margin_percent, width * 0.03)
-    y_margin = min(height * margin_percent, height * 0.03)
-    new_corners = []
-    for corner in corners:
-        x, y = corner
-        new_x = np.clip(x + (x - min_x) / width * x_margin - x_margin / 2, 0, img_shape[1] - 1)
-        new_y = np.clip(y + (y - min_y) / height * y_margin - y_margin / 2, 0, img_shape[0] - 1)
-        new_corners.append([new_x, new_y])
-    return np.array(new_corners, dtype="float32")
+# def add_margins_to_corners(corners, img_shape, margin_percent=MARGIN_PERCENT):
+#     corners = np.array(corners, dtype="float32")
+#     min_x = np.min(corners[:, 0])
+#     max_x = np.max(corners[:, 0])
+#     min_y = np.min(corners[:, 1])
+#     max_y = np.max(corners[:, 1])
+#     width = max_x - min_x
+#     height = max_y - min_y
+#     x_margin = min(width * margin_percent, width * 0.03)
+#     y_margin = min(height * margin_percent, height * 0.03)
+#     new_corners = []
+#     for corner in corners:
+#         x, y = corner
+#         new_x = np.clip(x + (x - min_x) / width * x_margin - x_margin / 2, 0, img_shape[1] - 1)
+#         new_y = np.clip(y + (y - min_y) / height * y_margin - y_margin / 2, 0, img_shape[0] - 1)
+#         new_corners.append([new_x, new_y])
+#     return np.array(new_corners, dtype="float32")
 
 def extract_and_transform_bounding_area(frame, corners):
     if corners is not None:
@@ -128,55 +128,57 @@ def process_frame_with_model(model, frame, overlay, last_valid_corners):
         print(f'Error in process_frame_with_model: {e}')
     return last_valid_corners
 
-def find_largest_tv_segment(results, frame, last_valid_corners):
-    largest_tv_area = 0
-    largest_tv_mask = None
-    try:
-        for i, detection in enumerate(results[0].boxes):
-            if detection.cls == 62:
-                mask = results[0].masks.data[i].cpu().numpy()
-                mask = (mask * 255).astype('uint8')
-                mask = cv2.resize(mask, (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_NEAREST)
-                mask = refine_mask(mask)
-                area = np.sum(mask > 0)
-                if area > largest_tv_area:
-                    largest_tv_area = area
-                    largest_tv_mask = mask
+# def find_largest_tv_segment(results, frame, last_valid_corners):
+#     largest_tv_area = 0
+#     largest_tv_mask = None
+#     try:
+#         for i, detection in enumerate(results[0].boxes):
+#             if detection.cls == 62:
+#                 mask = results[0].masks.data[i].cpu().numpy()
+#                 mask = (mask * 255).astype('uint8')
+#                 mask = cv2.resize(mask, (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_NEAREST)
+#                 mask = refine_mask(mask)
+#                 area = np.sum(mask > 0)
+#                 if area > largest_tv_area:
+#                     largest_tv_area = area
+#                     largest_tv_mask = mask
+#
+#         if largest_tv_mask is not None:
+#             contours, hierarchy = cv2.findContours(largest_tv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+#             external_contours = [cnt for cnt, h in zip(contours, hierarchy[0]) if h[3] == -1]
+#             if external_contours:
+#                 contour = max(external_contours, key=cv2.contourArea)
+#                 simplified_corners = simplify_polygon(contour, max_edges=4)
+#                 if len(simplified_corners) == 4:
+#                     last_valid_corners = simplified_corners
+#                 else:
+#                     simplified_corners = last_valid_corners
+#
+#                 if last_valid_corners is not None:
+#                     last_valid_corners = add_margins_to_corners(last_valid_corners, frame.shape)
+#
+#     except Exception as e:
+#         print(f'Error in find_largest_tv_segment: {e}')
+#
+#     return largest_tv_mask, last_valid_corners
 
-        if largest_tv_mask is not None:
-            contours, hierarchy = cv2.findContours(largest_tv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            external_contours = [cnt for cnt, h in zip(contours, hierarchy[0]) if h[3] == -1]
-            if external_contours:
-                contour = max(external_contours, key=cv2.contourArea)
-                simplified_corners = simplify_polygon(contour, max_edges=4)
-                if len(simplified_corners) == 4:
-                    last_valid_corners = simplified_corners
-                else:
-                    simplified_corners = last_valid_corners
-
-                if last_valid_corners is not None:
-                    last_valid_corners = add_margins_to_corners(last_valid_corners, frame.shape)
-
-    except Exception as e:
-        print(f'Error in find_largest_tv_segment: {e}')
-
-    return largest_tv_mask, last_valid_corners
 
 def process_and_display_frames(cap, model):
     last_valid_corners = None
     previous_diff_frame = None
     frame_count = 0
-    accumulated_frames = []
 
     try:
         while True:
+            # Stage 1: Capture Frame
             ret, frame = cap.read()
             if not ret:
                 print("Error: Failed to capture image")
                 break
 
-            original_frame = frame.copy()
+            original_frame = frame.copy()  # Keep a copy of the original frame for transformation
 
+            # Stage 2: Update Difference Mask (every FRAME_INTERVAL frames)
             if frame_count % FRAME_INTERVAL == 0:
                 if previous_diff_frame is not None:
                     frame_with_overlay = calculate_frame_diff(frame, previous_diff_frame)
@@ -185,20 +187,16 @@ def process_and_display_frames(cap, model):
                 previous_diff_frame = frame.copy()
 
             frame_count += 1
-            frame_count = frame_count % 1000
 
-            accumulated_frames.append(frame_with_overlay)
-            if len(accumulated_frames) > MAX_ACCUMULATED_FRAMES:
-                accumulated_frames.pop(0)
+            # Stage 3: Preprocess and Apply YOLO Model
+            preprocessed_frame = preprocess_frame(frame_with_overlay)
+            overlay = frame_with_overlay.copy()
 
-            blended_frame = blend_accumulated_frames(accumulated_frames)
-
-            preprocessed_frame = preprocess_frame(blended_frame)
-            overlay = blended_frame.copy()
-
+            # Stage 4: Process Frame with YOLO Model and Draw Bounding Polygon
             last_valid_corners = process_frame_with_model(model, preprocessed_frame, overlay, last_valid_corners)
 
-            final_frame = cv2.addWeighted(overlay, ALPHA, blended_frame, 1 - ALPHA, 0)
+            # Stage 5: Finalize Frame with Overlays and Display
+            final_frame = cv2.addWeighted(overlay, ALPHA, frame_with_overlay, 1 - ALPHA, 0)
 
             if last_valid_corners is not None:
                 final_frame = cv2.polylines(final_frame, [np.int32(last_valid_corners)], isClosed=True,
@@ -206,24 +204,29 @@ def process_and_display_frames(cap, model):
 
                 transformed_area = extract_and_transform_bounding_area(original_frame, last_valid_corners)
                 if transformed_area is not None:
+                    # Convert transformed areas to BGR
                     transformed_area_bgr = cv2.cvtColor(transformed_area, cv2.COLOR_RGB2BGR)
 
                     src_pts = np.array(last_valid_corners, dtype="float32")
                     cropped_transformed = apply_perspective_transform_and_crop(original_frame, src_pts)
-                    # cropped_transformed_bgr = cv2.cvtColor(cropped_transformed, cv2.COLOR_RGB2BGR)
+                    cropped_transformed_bgr = cv2.cvtColor(cropped_transformed, cv2.COLOR_RGB2BGR)
 
+                    # Combine images, ensuring all are in BGR format
                     combined_img = np.hstack((
-                        final_frame,
+                        final_frame,  # Already in BGR
                         cropped_transformed,
                         transformed_area
                     ))
 
                     # Display the combined image
-                    cv2.imshow('display', combined_img)
+                    cv2.imshow('combined_img', combined_img)
+                else:
+                    # If transformation fails, just show the final frame
+                    cv2.imshow('final', final_frame)
 
             else:
                 # Display the final frame without transformations
-                cv2.imshow('display', final_frame)
+                cv2.imshow('final', final_frame)
 
             # Press 'q' to exit the loop
             if cv2.waitKey(1) & 0xFF == ord('q'):
