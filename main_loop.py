@@ -1,6 +1,7 @@
 import cv2
 from ultralytics import YOLO
 import numpy as np
+from scipy.ndimage import label
 
 # Constants
 ALPHA = 0.7
@@ -69,6 +70,12 @@ class App():
         self.segmentation_model = YOLO('yolov8n-seg.pt')
         self.current_yolo_results=None
 
+        # Variables to hold previous segmentation results
+        self.previous_segmented_image = None
+        self.previous_simplified_corners = None
+        self.previous_contours = None
+        self.previous_area = 0
+
     def main_loop(self):
         try:
             while True:
@@ -102,6 +109,7 @@ class App():
                 # Draw overlays on gui_display_frame
                 try:
                     self.draw_overlays()
+                    # self.apply_watershed()
                 except ValueError as ve:
                     print(f'104 still catching detections {ve}')
 
@@ -219,10 +227,9 @@ class App():
         return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
     def stable_tv_segmentation(self):
-        self.current_yolo_results=self.segmentation_model(self.current_raw_frame)
-        self.current_yolo_results=self.segmentation_model(self.current_raw_frame)
+        """Stabilize the TV detection by refining the bounding box."""
+        self.current_yolo_results = self.segmentation_model(self.current_raw_frame)
         self.find_largest_tv_segment()
-        # self.calculate_frame_diff()
 
         if len(self.tv_last_valid_corners) == 4:
             self.is_tv_stable = True
@@ -233,13 +240,13 @@ class App():
         if self.largest_tv_mask is not None:
             purple_overlay = np.zeros_like(self.gui_display_frame)
             purple_overlay[self.largest_tv_mask > 0] = [128, 0, 128]
-            # cv2.addWeighted(purple_overlay, ALPHA, self.gui_display_frame, 1 - ALPHA, 0, self.gui_display_frame)
+            cv2.addWeighted(purple_overlay, ALPHA, self.gui_display_frame, 1 - ALPHA, 0, self.gui_display_frame)
 
         # Draw the tv_mask_diff in green
         if self.tv_mask_diff is not None:
             green_overlay = np.zeros_like(self.gui_display_frame)
             green_overlay[self.tv_mask_diff > 0] = [0, 255, 0]
-            # cv2.addWeighted(green_overlay, ALPHA, self.gui_display_frame, 1 - ALPHA, 0, self.gui_display_frame)
+            cv2.addWeighted(green_overlay, ALPHA, self.gui_display_frame, 1 - ALPHA, 0, self.gui_display_frame)
 
         # Draw the tv_last_valid_corners as red points
         if self.tv_last_valid_corners is not None and len(self.tv_last_valid_corners) == 4:
@@ -247,6 +254,105 @@ class App():
                 cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=(0, 0, 255), thickness=-1)
         else:
             print("Corners not drawn. Either not found or invalid.")
+
+        # Calculate the average point (centroid)
+        yolo_detection_avg = np.mean(self.tv_last_valid_corners, axis=0)
+
+        # Apply Watershed using the centroid as the seed
+        segmented_image, simplified_corners, contours = self.apply_watershed(self.current_raw_frame, yolo_detection_avg)
+
+        # Display the segmented image next to the GUI display frame
+        cv2.imshow("Watershed Segmentation", segmented_image)
+
+    def apply_watershed(self, image, yolo_detection_avg):
+        """
+        Apply the Watershed algorithm using the average point from YOLO detection as a seed.
+
+        Args:
+            image (np.ndarray): The input image on which to apply the Watershed algorithm.
+            yolo_detection_avg (np.ndarray): The average point (centroid) of the YOLO-detected TV corners.
+
+        Returns:
+            np.ndarray: The segmented image after applying the Watershed algorithm.
+        """
+        # Convert to grayscale
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # Apply a threshold to create a binary image
+        _, binary = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        # Noise removal (optional but recommended)
+        kernel = np.ones((3, 3), np.uint8)
+        opening = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=2)
+
+        # Sure background area
+        sure_bg = cv2.dilate(opening, kernel, iterations=3)
+
+        # Finding sure foreground area using distance transform
+        dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+        _, sure_fg = cv2.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
+
+        # Unknown region (where we are not sure if it is foreground or background)
+        sure_fg = np.uint8(sure_fg)
+        unknown = cv2.subtract(sure_bg, sure_fg)
+
+        # Markers for the Watershed algorithm
+        markers = np.zeros_like(gray, dtype=np.int32)
+
+        # Label the sure background
+        markers[sure_bg == 255] = 1
+
+        # Label the sure foreground
+        markers[sure_fg == 255] = 2
+
+        # Label the unknown region
+        markers[unknown == 255] = 0
+
+        # Place the seed point (yolo_detection_avg) into the marker image
+        avg_point_int = tuple(np.int32(yolo_detection_avg))
+        cv2.circle(markers, avg_point_int, 5, 3, -1)  # Label the seed as '3' in the markers image
+
+        # Apply Watershed
+        markers = cv2.watershed(image, markers)
+
+        # Create a binary mask for the specific marker (e.g., marker '3')
+        marker_mask = np.zeros_like(gray, dtype=np.uint8)
+        marker_mask[markers == 3] = 255
+
+        # Mark the boundaries in red
+        segmented_image = image.copy()
+        segmented_image[markers == -1] = [0, 0, 255]  # Red color for boundaries
+
+        # Find contours in the marker mask
+        contours, _ = cv2.findContours(marker_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        simplified_corners = []
+
+        # Calculate the area of the new segmentation
+        new_area = cv2.countNonZero(marker_mask)
+
+        # Check if the new area is larger than 120% of the previous area
+        if self.previous_area > 0 and new_area > 1.2 * self.previous_area:
+            print("Warning: Segmented area increased by more than 20%. Using previous segmentation.")
+            return self.previous_segmented_image, self.previous_simplified_corners, self.previous_contours
+
+        # Update previous area and segmentation results
+        self.previous_area = new_area
+        self.previous_segmented_image = segmented_image
+        self.previous_simplified_corners = simplified_corners
+        self.previous_contours = contours
+
+        # Simplify each contour and draw them
+        for contour in contours:
+            simplified_corners = self.simplify_polygon(contour, max_edges=4)
+            for corner in simplified_corners:
+                cv2.circle(segmented_image, tuple(np.int32(corner)), radius=5, color=(0, 255, 255), thickness=-1)
+
+        # Color the segmented area in cyan
+        segmented_image[markers == 3] = [255, 255, 0]  # Cyan color for the segmented area
+
+        cv2.circle(segmented_image, tuple(np.int32(yolo_detection_avg)), radius=5, color=(255, 0, 255), thickness=3)
+
+        return segmented_image, simplified_corners, contours
 
 
 if __name__ == "__main__":
