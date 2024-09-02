@@ -109,13 +109,14 @@ class App():
                 # Draw overlays on gui_display_frame
                 try:
                     self.draw_overlays()
+                    self.get_roi()
                     # self.apply_watershed()
                 except ValueError as ve:
                     print(f'104 still catching detections {ve}')
 
                 # Display the final frame
                 cv2.imshow("TV Detection", self.gui_display_frame)
-
+                cv2.imshow('cropped_transformed', self.cropped_transformed)
                 # Press 'q' to exit the loop
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
@@ -230,17 +231,22 @@ class App():
         """Stabilize the TV detection by refining the bounding box."""
         self.current_yolo_results = self.segmentation_model(self.current_raw_frame)
         self.find_largest_tv_segment()
+        # Calculate the average point (centroid)
+        yolo_detection_avg = np.mean(self.tv_last_valid_corners, axis=0)
 
-        if len(self.tv_last_valid_corners) == 4:
+        # Apply Watershed using the centroid as the seed
+        self.apply_watershed(self.current_raw_frame, yolo_detection_avg)
+
+        if len(self.tv_last_valid_corners) == 4 and len(self.watershed_corners) == 4:
             self.is_tv_stable = True
 
     def draw_overlays(self):
         """Draw the detected masks and polygons on the display frame."""
         # Draw the largest_tv_mask in purple
-        if self.largest_tv_mask is not None:
-            purple_overlay = np.zeros_like(self.gui_display_frame)
-            purple_overlay[self.largest_tv_mask > 0] = [128, 0, 128]
-            cv2.addWeighted(purple_overlay, ALPHA, self.gui_display_frame, 1 - ALPHA, 0, self.gui_display_frame)
+        # if self.largest_tv_mask is not None:
+        #     purple_overlay = np.zeros_like(self.gui_display_frame)
+        #     purple_overlay[self.largest_tv_mask > 0] = [128, 0, 128]
+        #     cv2.addWeighted(purple_overlay, ALPHA, self.gui_display_frame, 1 - ALPHA, 0, self.gui_display_frame)
 
         # Draw the tv_mask_diff in green
         if self.tv_mask_diff is not None:
@@ -255,14 +261,11 @@ class App():
         else:
             print("Corners not drawn. Either not found or invalid.")
 
-        # Calculate the average point (centroid)
-        yolo_detection_avg = np.mean(self.tv_last_valid_corners, axis=0)
 
-        # Apply Watershed using the centroid as the seed
-        segmented_image, simplified_corners, contours = self.apply_watershed(self.current_raw_frame, yolo_detection_avg)
-
+        for corner in self.watershed_corners:
+            cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=(0, 255, 255), thickness=-1)
         # Display the segmented image next to the GUI display frame
-        cv2.imshow("Watershed Segmentation", segmented_image)
+        # cv2.imshow("Watershed Segmentation", segmented_image)
 
     def apply_watershed(self, image, yolo_detection_avg):
         """
@@ -348,11 +351,44 @@ class App():
                 cv2.circle(segmented_image, tuple(np.int32(corner)), radius=5, color=(0, 255, 255), thickness=-1)
 
         # Color the segmented area in cyan
-        segmented_image[markers == 3] = [255, 255, 0]  # Cyan color for the segmented area
+        # segmented_image[markers == 3] = [255, 255, 0]  # Cyan color for the segmented area
 
         cv2.circle(segmented_image, tuple(np.int32(yolo_detection_avg)), radius=5, color=(255, 0, 255), thickness=3)
-
+        self.watershed_segmented_image, self.watershed_corners, self.watershed_contours=segmented_image, simplified_corners, contours
         return segmented_image, simplified_corners, contours
+
+    def apply_perspective_transform_and_crop(self,  target_aspect_ratio=ASPECT_RATIO):
+        src_pts = np.array(self.watershed_corners, dtype="float32")
+        def order_points(pts):
+            x_sorted = pts[np.argsort(pts[:, 0]), :]
+            left_most = x_sorted[:2, :]
+            right_most = x_sorted[2:, :]
+            left_most = left_most[np.argsort(left_most[:, 1]), :]
+            (tl, bl) = left_most
+            right_most = right_most[np.argsort(right_most[:, 1]), :]
+            (tr, br) = right_most
+            return np.array([tl, tr, br, bl], dtype="float32")
+
+        src_pts_ordered = order_points(src_pts)
+        width = self.current_raw_frame.shape[1]
+        height = self.current_raw_frame.shape[0]
+
+        target_width = width
+        target_height = int(width * target_aspect_ratio[1] / target_aspect_ratio[0])
+
+        if target_height > height:
+            target_height = height
+            target_width = int(height * target_aspect_ratio[0] / target_aspect_ratio[1])
+
+        dst_pts = np.array([[0, 0], [target_width, 0], [target_width, target_height], [0, target_height]],
+                           dtype="float32")
+        matrix = cv2.getPerspectiveTransform(src_pts_ordered, dst_pts)
+        self.cropped_transformed=cv2.warpPerspective(self.current_raw_frame, matrix, (target_width, target_height))
+
+
+    def get_roi(self):
+
+        self.apply_perspective_transform_and_crop()
 
 
 if __name__ == "__main__":
