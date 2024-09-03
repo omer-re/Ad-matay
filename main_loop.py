@@ -142,6 +142,7 @@ class App:
                 cv2.imshow(window_name1, self.gui_display_frame)
                 cv2.imshow(window_name2, self.cropped_transformed)
 
+
                 # Press 'q' to exit the loop
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
