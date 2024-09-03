@@ -186,7 +186,7 @@ class App():
                     contour = max(external_contours, key=cv2.contourArea)
                     simplified_corners = self.simplify_polygon(contour, max_edges=4)
                     self.tv_last_valid_corners = simplified_corners
-                    self.scaled_yolo_corners = self.scale_bounding_polygon(simplified_corners, 1.15)
+                    # self.scaled_yolo_corners = self.scale_bounding_polygon(simplified_corners, 1.15)
                     if len(simplified_corners) == 4:
                         self.tv_last_valid_corners = simplified_corners
 
@@ -288,11 +288,7 @@ class App():
             for corner in self.tv_last_valid_corners:
                 cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=YOLO_CORNERS_COLOR, thickness=-1)
 
-        # Draw the self.scaled_yolo_corners
-        if self.scaled_yolo_corners is not None and len(self.scaled_yolo_corners) == 4:
-            for corner in self.scaled_yolo_corners:
-                cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=YOLO_ENLRAGED_CORNERS_COLOR,
-                           thickness=-1)
+
 
         # else:
         #     print("Corners not drawn. Either not found or invalid.")
@@ -302,6 +298,14 @@ class App():
             for contour in self.tv_external_countours_yolo:
                 simplified_contour = self.simplify_polygon(contour)  # Simplify the contour
                 cv2.drawContours(self.gui_display_frame, [simplified_contour], -1, YOLO_CORNERS_COLOR, 2)
+
+
+
+        # Draw the self.scaled_yolo_corners
+        if self.scaled_corners is not None:
+            for corner in self.scaled_corners:
+                cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=8, color=YOLO_ENLRAGED_CORNERS_COLOR,
+                           thickness=-1)
 
 
 
@@ -405,7 +409,11 @@ class App():
         return segmented_image, simplified_corners, contours
 
     def apply_perspective_transform_and_crop(self, target_aspect_ratio=ASPECT_RATIO):
-        src_pts = np.array(self.watershed_corners, dtype="float32")
+        # Scale the watershed corners first
+        scaled_corners = self.scale_bounding_polygon(self.watershed_corners, 1.2)
+        self.scaled_corners=scaled_corners
+        # src_pts = np.array(self.watershed_corners, dtype="float32")
+        src_pts = np.array(scaled_corners, dtype="float32")
 
         # Compute the convex hull to keep only the most external points
         if len(src_pts) > 4:
@@ -440,6 +448,8 @@ class App():
                            dtype="float32")
         matrix = cv2.getPerspectiveTransform(src_pts_ordered, dst_pts)
         self.cropped_transformed = cv2.warpPerspective(self.current_raw_frame, matrix, (target_width, target_height))
+
+
 
     def get_roi(self):
 
