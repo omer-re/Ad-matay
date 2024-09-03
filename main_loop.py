@@ -418,7 +418,8 @@ class App:
     def apply_perspective_transform_and_crop(self, target_aspect_ratio=ASPECT_RATIO):
         """Apply perspective transform to the detected TV corners and crop the image."""
         # Scale the watershed corners first
-        scaled_corners = self.scale_bounding_polygon(self.watershed_corners, 1.2)
+        # scaled_corners = self.scale_bounding_polygon(self.watershed_corners, 1.2)
+        scaled_corners = self.scale_bounding_polygon(self.tv_last_valid_corners, 1.2)
         self.scaled_corners = scaled_corners
 
         src_pts = np.array(scaled_corners, dtype="float32")
