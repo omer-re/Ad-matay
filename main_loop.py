@@ -4,7 +4,7 @@ import numpy as np
 from scipy.ndimage import label
 
 # Constants
-ALPHA = 0.7
+ALPHA = 0.2
 FRAME_INTERVAL = 3
 MARGIN_PERCENT = 0.03
 KERNEL_SIZE = (11, 11)
@@ -17,9 +17,11 @@ CAMERA_HEIGHT = 720
 MAX_ACCUMULATED_FRAMES = 5
 PINK_COLOR = (255, 105, 180)
 YELLOW_COLOR = (255, 255, 0)
-
+YOLO_CORNERS_COLOR=(0,0,255)
+YOLO_ENLRAGED_CORNERS_COLOR=(0,200,0)
+WATERSHED_CORNERS_COLOR=(0,255,255)
 SHORT_INTERVAL = 5
-MID_INTERVAL = 500
+MID_INTERVAL = 50
 LONG_INTERVAL = 10000
 
 # Open the USB camera (use the correct index for your camera)
@@ -61,6 +63,7 @@ class App():
         self.tv_mask_diff = None
         self.tv_last_valid_corners = None
         self.gui_display_frame = None
+        self.cropped_transformed=None
         self.feature_detector = cv2.ORB_create()
         self.match_threshold = 10
         self.reference_keypoints = None
@@ -101,7 +104,8 @@ class App():
                         print(f'92 still catching detections {te}')
 
                 # Validate TV detection at intervals
-                elif self.frame_counter.get_value() % MID_INTERVAL == 0:
+                if self.frame_counter.get_value() % MID_INTERVAL == 0:
+                    self.is_tv_stable = False
                     has_camera_moved = self.has_camera_moved()
                     if has_camera_moved:
                         self.is_tv_stable = False
@@ -109,13 +113,14 @@ class App():
                 # Draw overlays on gui_display_frame
                 try:
                     self.draw_overlays()
-                    self.get_roi()
                     # self.apply_watershed()
                 except ValueError as ve:
                     print(f'104 still catching detections {ve}')
+                # self.get_roi()
 
                 # Display the final frame
                 cv2.imshow("TV Detection", self.gui_display_frame)
+                # if self.cropped_transformed is not None:
                 cv2.imshow('cropped_transformed', self.cropped_transformed)
                 # Press 'q' to exit the loop
                 if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -134,6 +139,28 @@ class App():
     def get_yolo_detections(self):
         self.current_yolo_results = self.segmentation_model(self.current_raw_frame)
         self.find_largest_tv_segment()
+
+    def scale_bounding_polygon(self, corners, scale_factor):
+        """
+        Scale the bounding polygon homogeneously while keeping the angles and centroid.
+
+        Args:
+            corners (list or np.ndarray): List of corner points (x, y) defining the bounding polygon.
+            scale_factor (float): The factor by which to scale the polygon (e.g., 1.2 for 20% increase).
+
+        Returns:
+            np.ndarray: Scaled list of corner points (x, y).
+        """
+        # Convert corners to a NumPy array if not already
+        corners = np.array(corners, dtype=np.float32)
+
+        # Calculate the centroid of the polygon
+        centroid = np.mean(corners, axis=0)
+
+        # Scale each point relative to the centroid
+        scaled_corners = scale_factor * (corners - centroid) + centroid
+
+        return scaled_corners
 
     def find_largest_tv_segment(self):
         largest_tv_area = 0
@@ -154,13 +181,15 @@ class App():
                 self.largest_tv_area = largest_tv_area
                 contours, hierarchy = cv2.findContours(largest_tv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 external_contours = [cnt for cnt, h in zip(contours, hierarchy[0]) if h[3] == -1]
+                self.tv_external_countours_yolo=external_contours
                 if external_contours:
                     contour = max(external_contours, key=cv2.contourArea)
                     simplified_corners = self.simplify_polygon(contour, max_edges=4)
                     self.tv_last_valid_corners = simplified_corners
-
+                    self.scaled_yolo_corners = self.scale_bounding_polygon(simplified_corners, 1.15)
                     if len(simplified_corners) == 4:
                         self.tv_last_valid_corners = simplified_corners
+
                         self.tv_mask_yolo = self.largest_tv_mask
 
                     # else - keep using previous corners
@@ -236,17 +265,17 @@ class App():
 
         # Apply Watershed using the centroid as the seed
         self.apply_watershed(self.current_raw_frame, yolo_detection_avg)
-
+        self.get_roi()
         if len(self.tv_last_valid_corners) == 4 and len(self.watershed_corners) == 4:
             self.is_tv_stable = True
 
     def draw_overlays(self):
         """Draw the detected masks and polygons on the display frame."""
         # Draw the largest_tv_mask in purple
-        # if self.largest_tv_mask is not None:
-        #     purple_overlay = np.zeros_like(self.gui_display_frame)
-        #     purple_overlay[self.largest_tv_mask > 0] = [128, 0, 128]
-        #     cv2.addWeighted(purple_overlay, ALPHA, self.gui_display_frame, 1 - ALPHA, 0, self.gui_display_frame)
+        if self.largest_tv_mask is not None:
+            purple_overlay = np.zeros_like(self.gui_display_frame)
+            purple_overlay[self.largest_tv_mask > 0] = [128, 0, 128]
+            cv2.addWeighted(purple_overlay, ALPHA, self.gui_display_frame, 1 - ALPHA, 0, self.gui_display_frame)
 
         # Draw the tv_mask_diff in green
         if self.tv_mask_diff is not None:
@@ -257,13 +286,27 @@ class App():
         # Draw the tv_last_valid_corners as red points
         if self.tv_last_valid_corners is not None and len(self.tv_last_valid_corners) == 4:
             for corner in self.tv_last_valid_corners:
-                cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=(0, 0, 255), thickness=-1)
-        else:
-            print("Corners not drawn. Either not found or invalid.")
+                cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=YOLO_CORNERS_COLOR, thickness=-1)
+
+        # Draw the self.scaled_yolo_corners
+        if self.scaled_yolo_corners is not None and len(self.scaled_yolo_corners) == 4:
+            for corner in self.scaled_yolo_corners:
+                cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=YOLO_ENLRAGED_CORNERS_COLOR,
+                           thickness=-1)
+
+        # else:
+        #     print("Corners not drawn. Either not found or invalid.")
+
+            # Draw external contours in red
+        if self.tv_external_countours_yolo is not None:
+            for contour in self.tv_external_countours_yolo:
+                simplified_contour = self.simplify_polygon(contour)  # Simplify the contour
+                cv2.drawContours(self.gui_display_frame, [simplified_contour], -1, YOLO_CORNERS_COLOR, 2)
+
 
 
         for corner in self.watershed_corners:
-            cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=(0, 255, 255), thickness=-1)
+            cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=WATERSHED_CORNERS_COLOR, thickness=-1)
         # Display the segmented image next to the GUI display frame
         # cv2.imshow("Watershed Segmentation", segmented_image)
 
@@ -355,18 +398,31 @@ class App():
 
         cv2.circle(segmented_image, tuple(np.int32(yolo_detection_avg)), radius=5, color=(255, 0, 255), thickness=3)
         self.watershed_segmented_image, self.watershed_corners, self.watershed_contours=segmented_image, simplified_corners, contours
+        if len(simplified_corners)!=4:
+            print("363 len(simplified_corners)!=4")
+            simplified_corners=self.tv_last_valid_corners
+            self.watershed_corners=self.tv_last_valid_corners
         return segmented_image, simplified_corners, contours
 
-    def apply_perspective_transform_and_crop(self,  target_aspect_ratio=ASPECT_RATIO):
+    def apply_perspective_transform_and_crop(self, target_aspect_ratio=ASPECT_RATIO):
         src_pts = np.array(self.watershed_corners, dtype="float32")
+
+        # Compute the convex hull to keep only the most external points
+        if len(src_pts) > 4:
+            hull = cv2.convexHull(src_pts)
+            src_pts = hull[:, 0, :]  # Remove unnecessary dimensions
+
         def order_points(pts):
             x_sorted = pts[np.argsort(pts[:, 0]), :]
             left_most = x_sorted[:2, :]
-            right_most = x_sorted[2:, :]
+            right_most = x_sorted[-2:, :]  # Get the last two points for right_most
+
+            # Sort the points within left_most and right_most based on their y-coordinates
             left_most = left_most[np.argsort(left_most[:, 1]), :]
             (tl, bl) = left_most
             right_most = right_most[np.argsort(right_most[:, 1]), :]
             (tr, br) = right_most
+
             return np.array([tl, tr, br, bl], dtype="float32")
 
         src_pts_ordered = order_points(src_pts)
@@ -383,8 +439,7 @@ class App():
         dst_pts = np.array([[0, 0], [target_width, 0], [target_width, target_height], [0, target_height]],
                            dtype="float32")
         matrix = cv2.getPerspectiveTransform(src_pts_ordered, dst_pts)
-        self.cropped_transformed=cv2.warpPerspective(self.current_raw_frame, matrix, (target_width, target_height))
-
+        self.cropped_transformed = cv2.warpPerspective(self.current_raw_frame, matrix, (target_width, target_height))
 
     def get_roi(self):
 
