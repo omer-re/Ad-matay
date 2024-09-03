@@ -3,75 +3,92 @@ from ultralytics import YOLO
 import numpy as np
 from scipy.ndimage import label
 
-# Constants
-ALPHA = 0.2
-FRAME_INTERVAL = 3
-MARGIN_PERCENT = 0.03
-KERNEL_SIZE = (11, 11)
-SIGMA_X = 0
-SIGMA_Y = 0
-ASPECT_RATIO = (16, 9)
-CAMERA_INDEX = 0
-CAMERA_WIDTH = 1280
-CAMERA_HEIGHT = 720
-MAX_ACCUMULATED_FRAMES = 5
-PINK_COLOR = (255, 105, 180)
-YELLOW_COLOR = (255, 255, 0)
-YOLO_CORNERS_COLOR=(0,0,255)
-YOLO_ENLRAGED_CORNERS_COLOR=(0,200,0)
-WATERSHED_CORNERS_COLOR=(0,255,255)
-SHORT_INTERVAL = 5
-MID_INTERVAL = 50
-LONG_INTERVAL = 10000
+# Constants for configuration
+ALPHA = 0.2  # Alpha value for overlay transparency
+FRAME_INTERVAL = 3  # Interval for frame processing
+MARGIN_PERCENT = 0.03  # Margin percentage for certain calculations
+KERNEL_SIZE = (11, 11)  # Kernel size for image processing
+SIGMA_X = 0  # Sigma X for Gaussian Blur
+SIGMA_Y = 0  # Sigma Y for Gaussian Blur
+ASPECT_RATIO = (16, 9)  # Target aspect ratio for cropping
+CAMERA_INDEX = 0  # Index for the camera
+CAMERA_WIDTH = 2560  # Width of the camera feed
+CAMERA_HEIGHT = 1440  # Height of the camera feed
+MAX_ACCUMULATED_FRAMES = 5  # Max frames to accumulate for processing
+PINK_COLOR = (255, 105, 180)  # Pink color for overlays
+YELLOW_COLOR = (255, 255, 0)  # Yellow color for overlays
+YOLO_CORNERS_COLOR = (0, 0, 255)  # Color for YOLO detected corners
+YOLO_ENLRAGED_CORNERS_COLOR = (0, 200, 0)  # Color for scaled corners
+WATERSHED_CORNERS_COLOR = (0, 255, 255)  # Color for Watershed corners
+SHORT_INTERVAL = 5  # Short interval for certain operations
+MID_INTERVAL = 50  # Mid interval for certain operations
+LONG_INTERVAL = 10000  # Long interval for certain operations
 
-# Open the USB camera (use the correct index for your camera)
+# Open the USB camera
 cap = cv2.VideoCapture(CAMERA_INDEX)
+
 if not cap.isOpened():
     print("Error: Could not open video device")
     cap.release()
     exit()
 
+# Set the video format to MJPG
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+
+"""
+check your camera ersolution options using `v4l2-ctl --list-formats-ext`
+"""
+
 # Set the video frame width and height
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
 
+# Check if the resolution was set successfully
+width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+# print(f"Resolution set to: {width}x{height}")
+
 class CyclicFrameCounter:
+    """A simple cyclic counter to handle frame intervals."""
     def __init__(self, max_value, interval):
         self.max_value = max_value
         self.interval = interval
         self.current_value = 0
 
     def increment(self):
+        """Increment the counter and loop back if necessary."""
         self.current_value = (self.current_value + self.interval) % self.max_value
         return self.current_value
 
     def reset(self):
+        """Reset the counter to zero."""
         self.current_value = 0
 
     def get_value(self):
+        """Get the current value of the counter."""
         return self.current_value
 
-class App():
+class App:
     def __init__(self, cap):
         self.cap = cap
-        self.is_tv_stable = False
+        self.is_tv_stable = False  # Flag to determine if TV detection is stable
         self.frame_counter = CyclicFrameCounter(max_value=LONG_INTERVAL, interval=1)
         self.previous_stabilization_frame = None
         self.current_raw_frame = None
-        self.previous_raw_frame=self.current_raw_frame
+        self.previous_raw_frame = self.current_raw_frame
         self.tv_mask_yolo = None
         self.tv_mask_diff = None
         self.tv_last_valid_corners = None
         self.gui_display_frame = None
-        self.cropped_transformed=None
-        self.feature_detector = cv2.ORB_create()
-        self.match_threshold = 10
+        self.cropped_transformed = None
+        self.feature_detector = cv2.ORB_create()  # Feature detector for image comparison
+        self.match_threshold = 10  # Threshold for feature matching
         self.reference_keypoints = None
         self.reference_descriptors = None
         self.largest_tv_mask = None
         self.largest_tv_area = None
-        self.segmentation_model = YOLO('yolov8n-seg.pt')
-        self.current_yolo_results=None
+        self.segmentation_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
+        self.current_yolo_results = None
 
         # Variables to hold previous segmentation results
         self.previous_segmented_image = None
@@ -80,6 +97,7 @@ class App():
         self.previous_area = 0
 
     def main_loop(self):
+        """Main loop for processing frames from the camera."""
         try:
             while True:
                 ret, raw_frame = self.cap.read()
@@ -87,7 +105,7 @@ class App():
                     print("Error: Failed to capture image")
                     break
 
-                if self.frame_counter.get_value()<5:
+                if self.frame_counter.get_value() < 5:
                     self.frame_counter.increment()
                     self.update_current_frame(raw_frame)
                     self.set_reference_frame()
@@ -96,27 +114,13 @@ class App():
                 self.update_current_frame(raw_frame)
                 self.gui_display_frame = self.current_raw_frame.copy()
 
-                # Detect and stabilize TV
-                if not self.is_tv_stable:
-                    try:
-                        self.stable_tv_segmentation()
-                    except TypeError as te:
-                        print(f'92 still catching detections {te}')
-
-                # Validate TV detection at intervals
-                if self.frame_counter.get_value() % MID_INTERVAL == 0:
-                    self.is_tv_stable = False
-                    has_camera_moved = self.has_camera_moved()
-                    if has_camera_moved:
-                        self.is_tv_stable = False
+                self.stable_tv_segmentation()  # Stabilize TV detection
 
                 # Draw overlays on gui_display_frame
                 try:
                     self.draw_overlays()
-                    # self.apply_watershed()
                 except ValueError as ve:
-                    print(f'104 still catching detections {ve}')
-                # self.get_roi()
+                    print(f'Error during overlay drawing: {ve}')
 
                 # Set window names
                 window_name1 = "TV Detection"
@@ -149,10 +153,12 @@ class App():
             cv2.destroyAllWindows()
 
     def update_current_frame(self, new_frame):
+        """Update the current frame and maintain the previous frame."""
         self.previous_raw_frame = self.current_raw_frame
         self.current_raw_frame = new_frame
 
     def get_yolo_detections(self):
+        """Run YOLO detection on the current frame."""
         self.current_yolo_results = self.segmentation_model(self.current_raw_frame)
         self.find_largest_tv_segment()
 
@@ -179,11 +185,12 @@ class App():
         return scaled_corners
 
     def find_largest_tv_segment(self):
+        """Identify the largest TV segment detected by YOLO."""
         largest_tv_area = 0
         largest_tv_mask = None
         try:
             for i, detection in enumerate(self.current_yolo_results[0].boxes):
-                if detection.cls == 62:
+                if detection.cls == 62:  # Check if the detected class is a TV
                     mask = self.current_yolo_results[0].masks.data[i].cpu().numpy()
                     mask = (mask * 255).astype('uint8')
                     mask = cv2.resize(mask, (self.current_raw_frame.shape[1], self.current_raw_frame.shape[0]), interpolation=cv2.INTER_NEAREST)
@@ -197,27 +204,26 @@ class App():
                 self.largest_tv_area = largest_tv_area
                 contours, hierarchy = cv2.findContours(largest_tv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 external_contours = [cnt for cnt, h in zip(contours, hierarchy[0]) if h[3] == -1]
-                self.tv_external_countours_yolo=external_contours
+                self.tv_external_countours_yolo = external_contours
                 if external_contours:
                     contour = max(external_contours, key=cv2.contourArea)
                     simplified_corners = self.simplify_polygon(contour, max_edges=4)
                     self.tv_last_valid_corners = simplified_corners
-                    # self.scaled_yolo_corners = self.scale_bounding_polygon(simplified_corners, 1.15)
                     if len(simplified_corners) == 4:
                         self.tv_last_valid_corners = simplified_corners
-
                         self.tv_mask_yolo = self.largest_tv_mask
 
-                    # else - keep using previous corners
         except Exception as e:
             print(f'Error in find_largest_tv_segment: {e}')
 
     def set_reference_frame(self):
+        """Set the reference frame for feature matching."""
         if self.current_raw_frame is not None:
             self.ref_frame = cv2.bitwise_and(self.current_raw_frame, self.current_raw_frame, mask=self.tv_mask_yolo)
         self.reference_keypoints, self.reference_descriptors = self.feature_detector.detectAndCompute(self.ref_frame, None)
 
     def has_camera_moved(self):
+        """Determine if the camera has moved by comparing the current frame with the reference frame."""
         if self.reference_keypoints is None or self.reference_descriptors is None or self.current_raw_frame is None:
             raise ValueError("Reference frame is not set. Call set_reference_frame() first.")
 
@@ -242,6 +248,7 @@ class App():
         return result
 
     def calculate_frame_diff(self):
+        """Calculate the difference between the current frame and the previous frame."""
         if self.previous_raw_frame is None or self.current_raw_frame is None:
             print("16 empty frames")
 
@@ -253,6 +260,7 @@ class App():
         self.tv_mask_diff = dynamic_overlay
 
     def simplify_polygon(self, contour, max_edges=5, epsilon_factor=0.02):
+        """Simplify a polygonal contour to reduce the number of points."""
         epsilon = epsilon_factor * cv2.arcLength(contour, True)
         simplified_contour = cv2.approxPolyDP(contour, epsilon, True)
         if len(simplified_contour.shape) == 3 and simplified_contour.shape[1] == 1:
@@ -260,15 +268,13 @@ class App():
         return simplified_contour
 
     def remove_shadows(self):
-        # Convert to LAB color space
+        """Remove shadows from the current frame by converting to LAB color space and applying CLAHE."""
         lab = cv2.cvtColor(self.current_raw_frame, cv2.COLOR_BGR2LAB)
         l, a, b = cv2.split(lab)
 
-        # Apply CLAHE to L-channel (contrast limited adaptive histogram equalization)
         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
         l = clahe.apply(l)
 
-        # Merge the channels and convert back to BGR
         lab = cv2.merge((l, a, b))
         return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
@@ -276,10 +282,7 @@ class App():
         """Stabilize the TV detection by refining the bounding box."""
         self.current_yolo_results = self.segmentation_model(self.current_raw_frame)
         self.find_largest_tv_segment()
-        # Calculate the average point (centroid)
         yolo_detection_avg = np.mean(self.tv_last_valid_corners, axis=0)
-
-        # Apply Watershed using the centroid as the seed
         self.apply_watershed(self.current_raw_frame, yolo_detection_avg)
         self.get_roi()
         if len(self.tv_last_valid_corners) == 4 and len(self.watershed_corners) == 4:
@@ -304,31 +307,20 @@ class App():
             for corner in self.tv_last_valid_corners:
                 cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=YOLO_CORNERS_COLOR, thickness=-1)
 
-
-
-        # else:
-        #     print("Corners not drawn. Either not found or invalid.")
-
-            # Draw external contours in red
+        # Draw external contours in red
         if self.tv_external_countours_yolo is not None:
             for contour in self.tv_external_countours_yolo:
                 simplified_contour = self.simplify_polygon(contour)  # Simplify the contour
                 cv2.drawContours(self.gui_display_frame, [simplified_contour], -1, YOLO_CORNERS_COLOR, 2)
 
-
-
-        # Draw the self.scaled_yolo_corners
+        # Draw the scaled_yolo_corners
         if self.scaled_corners is not None:
             for corner in self.scaled_corners:
-                cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=8, color=YOLO_ENLRAGED_CORNERS_COLOR,
-                           thickness=-1)
+                cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=8, color=YOLO_ENLRAGED_CORNERS_COLOR, thickness=-1)
 
-
-
+        # Draw the Watershed corners
         for corner in self.watershed_corners:
             cv2.circle(self.gui_display_frame, tuple(np.int32(corner)), radius=5, color=WATERSHED_CORNERS_COLOR, thickness=-1)
-        # Display the segmented image next to the GUI display frame
-        # cv2.imshow("Watershed Segmentation", segmented_image)
 
     def apply_watershed(self, image, yolo_detection_avg):
         """
@@ -413,22 +405,21 @@ class App():
             for corner in simplified_corners:
                 cv2.circle(segmented_image, tuple(np.int32(corner)), radius=5, color=(0, 255, 255), thickness=-1)
 
-        # Color the segmented area in cyan
-        # segmented_image[markers == 3] = [255, 255, 0]  # Cyan color for the segmented area
-
+        # Draw the average YOLO detection point
         cv2.circle(segmented_image, tuple(np.int32(yolo_detection_avg)), radius=5, color=(255, 0, 255), thickness=3)
-        self.watershed_segmented_image, self.watershed_corners, self.watershed_contours=segmented_image, simplified_corners, contours
-        if len(simplified_corners)!=4:
-            print("363 len(simplified_corners)!=4")
-            simplified_corners=self.tv_last_valid_corners
-            self.watershed_corners=self.tv_last_valid_corners
+        self.watershed_segmented_image, self.watershed_corners, self.watershed_contours = segmented_image, simplified_corners, contours
+        if len(simplified_corners) != 4:
+            print("Warning: Simplified corners do not form a rectangle.")
+            simplified_corners = self.tv_last_valid_corners
+            self.watershed_corners = self.tv_last_valid_corners
         return segmented_image, simplified_corners, contours
 
     def apply_perspective_transform_and_crop(self, target_aspect_ratio=ASPECT_RATIO):
+        """Apply perspective transform to the detected TV corners and crop the image."""
         # Scale the watershed corners first
         scaled_corners = self.scale_bounding_polygon(self.watershed_corners, 1.2)
-        self.scaled_corners=scaled_corners
-        # src_pts = np.array(self.watershed_corners, dtype="float32")
+        self.scaled_corners = scaled_corners
+
         src_pts = np.array(scaled_corners, dtype="float32")
 
         # Compute the convex hull to keep only the most external points
@@ -437,6 +428,7 @@ class App():
             src_pts = hull[:, 0, :]  # Remove unnecessary dimensions
 
         def order_points(pts):
+            """Order points for perspective transformation."""
             x_sorted = pts[np.argsort(pts[:, 0]), :]
             left_most = x_sorted[:2, :]
             right_most = x_sorted[-2:, :]  # Get the last two points for right_most
@@ -460,17 +452,13 @@ class App():
             target_height = height
             target_width = int(height * target_aspect_ratio[0] / target_aspect_ratio[1])
 
-        dst_pts = np.array([[0, 0], [target_width, 0], [target_width, target_height], [0, target_height]],
-                           dtype="float32")
+        dst_pts = np.array([[0, 0], [target_width, 0], [target_width, target_height], [0, target_height]], dtype="float32")
         matrix = cv2.getPerspectiveTransform(src_pts_ordered, dst_pts)
         self.cropped_transformed = cv2.warpPerspective(self.current_raw_frame, matrix, (target_width, target_height))
 
-
-
     def get_roi(self):
-
+        """Get the Region of Interest by applying perspective transform and cropping."""
         self.apply_perspective_transform_and_crop()
-
 
 if __name__ == "__main__":
     app = App(cap)
