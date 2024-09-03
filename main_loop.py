@@ -118,10 +118,26 @@ class App():
                     print(f'104 still catching detections {ve}')
                 # self.get_roi()
 
+                # Set window names
+                window_name1 = "TV Detection"
+                window_name2 = "cropped_transformed"
+
+                # Create resizable windows
+                cv2.namedWindow(window_name1, cv2.WINDOW_NORMAL)
+                cv2.namedWindow(window_name2, cv2.WINDOW_NORMAL)
+
+                # Resize windows to 700x400
+                cv2.resizeWindow(window_name1, 700, 400)
+                cv2.resizeWindow(window_name2, 700, 400)
+
+                # Position the windows next to each other
+                cv2.moveWindow(window_name1, 100, 100)  # Move first window to position (100, 100)
+                cv2.moveWindow(window_name2, 810, 100)  # Move second window to the right of the first one
+
                 # Display the final frame
-                cv2.imshow("TV Detection", self.gui_display_frame)
-                # if self.cropped_transformed is not None:
-                cv2.imshow('cropped_transformed', self.cropped_transformed)
+                cv2.imshow(window_name1, self.gui_display_frame)
+                cv2.imshow(window_name2, self.cropped_transformed)
+
                 # Press 'q' to exit the loop
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
