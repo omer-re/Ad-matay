@@ -25,7 +25,12 @@ MID_INTERVAL = 50  # Mid interval for certain operations
 LONG_INTERVAL = 10000  # Long interval for certain operations
 
 # Open the USB camera
-cap = cv2.VideoCapture(CAMERA_INDEX)
+# cap = cv2.VideoCapture(CAMERA_INDEX)
+
+
+# Path to the video file
+VIDEO_FILE_PATH = "video_examples/tv_on_noon_ads_ch13.mp4"
+cap = cv2.VideoCapture(VIDEO_FILE_PATH)
 
 if not cap.isOpened():
     print("Error: Could not open video device")
