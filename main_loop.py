@@ -29,7 +29,7 @@ LONG_INTERVAL = 10000  # Long interval for certain operations
 
 
 # Path to the video file
-VIDEO_FILE_PATH = "video_examples/tv_on_noon_ads_ch13.mp4"
+VIDEO_FILE_PATH = "video_examples/tv_on_noon_ads_ch12.mp4"
 cap = cv2.VideoCapture(VIDEO_FILE_PATH)
 
 if not cap.isOpened():
@@ -93,6 +93,7 @@ class App:
         self.largest_tv_mask = None
         self.largest_tv_area = None
         self.segmentation_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
+        self.ocr_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
         self.current_yolo_results = None
         self.scaled_corners=None
         # Variables to hold previous segmentation results
@@ -147,7 +148,7 @@ class App:
                     # Display the final frame
                     cv2.imshow(window_name1, self.gui_display_frame)
                     cv2.imshow(window_name2, self.cropped_transformed)
-
+                    self.process_top_left_cell_for_text_detection()
 
                     # Press 'q' to exit the loop
                     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -161,6 +162,61 @@ class App:
         finally:
             cap.release()
             cv2.destroyAllWindows()
+
+
+    def process_top_left_cell_for_text_detection(self):
+        """
+        Process the top-left cell of a 3x3 grid of the cropped transformed image.
+        The cell is converted to grayscale, quantized, enhanced, and sharpened to
+        make bright text over a dark background easier to detect for OCR.
+        A slider is included to control the threshold value dynamically.
+        """
+        if self.cropped_transformed is None:
+            print("No transformed image available.")
+            return None
+
+        # Get the size of the cropped transformed image
+        height, width, _ = self.cropped_transformed.shape
+
+        # Calculate the dimensions of each cell in the 3x3 grid
+        cell_height = height // 4
+        cell_width = width // 4
+
+        # Extract the top-left cell from the 3x3 grid
+        top_left_cell = self.cropped_transformed[0:cell_height, 0:cell_width]
+
+        # Convert the cell to grayscale
+        gray_top_left_cell = cv2.cvtColor(top_left_cell, cv2.COLOR_BGR2GRAY)
+
+        # Create a window to display the processed image
+        window_name = "Processed Top Left Cell for OCR"
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+
+        # Callback function for the trackbar
+        def on_trackbar(threshold_value):
+            # Apply Gaussian Blur to smooth the image
+            blurred = cv2.GaussianBlur(gray_top_left_cell, (5, 5), 0)
+
+            # Apply fixed thresholding with the current slider value
+            _, thresholded = cv2.threshold(blurred, threshold_value, 255, cv2.THRESH_BINARY_INV)
+
+            # Display the thresholded image instead of contours
+            cv2.imshow(window_name, thresholded)
+
+        # Create a trackbar for threshold control (values between 0 and 255)
+        cv2.createTrackbar('Threshold', window_name, 127, 255, on_trackbar)
+
+        # Initialize the window with the default threshold value
+        on_trackbar(220)
+
+        # Display the original top-left cell as well for comparison
+        cv2.imshow('Original Top Left Cell', top_left_cell)
+
+        # Wait indefinitely until the user presses a key
+        cv2.waitKey(0)
+
+        # Destroy all windows when done
+        cv2.destroyAllWindows()
 
     def update_current_frame(self, new_frame):
         """Update the current frame and maintain the previous frame."""

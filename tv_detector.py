@@ -1,0 +1,281 @@
+import cv2
+import numpy as np
+import threading
+import queue
+import time
+from ultralytics import YOLO
+
+#         self.segmentation_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
+ASPECT_RATIO = (16, 9)  # Example aspect ratio for cropping (you can modify this)
+
+class TVDetector(threading.Thread):
+    def __init__(self, input_queue, output_queue):
+        """
+        Initializes the TV detector with the YOLO segmentation model.
+        :param model: The YOLO segmentation model.
+        :param input_queue: Queue from which the TVDetector will receive frames.
+        :param output_queue: Queue to which the TVDetector will pass frames with ROI marked.
+        """
+        super().__init__()
+        self.segmentation_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+        self.running = True
+        self.last_roi_frame = None  # Holds the previous ROI frame if no new input
+        self.tv_last_valid_corners = None  # Holds the last valid TV corners
+        self.current_raw_frame = None  # Holds the current raw frame
+        self.cropped_transformed = None  # Holds the transformed and cropped frame
+
+    def detect_tv(self, frame):
+        """
+        Uses YOLOv8 segmentation model to detect the TV in the frame and mark the largest one as the ROI.
+        Also processes the mask to find the corners of the detected TV.
+        :param frame: The input frame from the video stream.
+        :return: The frame with the largest detected TV region and its corners marked, or the original frame if no TV is found.
+        """
+        self.current_raw_frame = frame  # Store the raw frame
+        results = self.segmentation_model(frame)  # Perform inference on the frame
+
+        # Filter results to find the TV class (replace 'tv' with your actual class label)
+        tv_class_name = 'tv'  # Replace with the actual class label for TV in your model
+        tv_detections = [result for result in results if result['name'] == tv_class_name]
+
+        if not tv_detections:
+            return frame  # No TV detected, return the original frame
+
+        # Find the largest TV detection based on bounding box area
+        largest_tv = max(tv_detections, key=lambda d: (d['box'][2] - d['box'][0]) * (d['box'][3] - d['box'][1]))
+        (x1, y1, x2, y2) = largest_tv['box']
+
+        # Assuming the YOLO model also returns a mask (replace with actual mask retrieval logic)
+        mask = largest_tv['mask']  # Use the segmentation mask from YOLO
+        corners, _, refined_mask, _ = self.detect_tv_corners(frame, mask)
+
+        # If corners were found, draw the quadrilateral and store them
+        if corners is not None:
+            self.tv_last_valid_corners = corners  # Store the last valid corners
+            for i in range(4):
+                cv2.line(frame, tuple(corners[i]), tuple(corners[(i + 1) % 4]), (0, 255, 0), 2)
+
+        return frame
+
+    def detect_tv_corners(self, image, mask):
+        """
+        Detects the corners of the TV in the given frame using its segmentation mask.
+        If a quadrilateral is found, it returns the 4 corners. Otherwise, it tries to find line intersections.
+        :param image: The input frame.
+        :param mask: The segmentation mask for the TV.
+        :return: Corners of the detected TV, contour, refined mask, and contour area.
+        """
+
+        def line_intersection(line1, line2):
+            # Compute the intersection of two lines
+            x1, y1 = line1[0]
+            x2, y2 = line1[1]
+            x3, y3 = line2[0]
+            x4, y4 = line2[1]
+
+            denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+            if denom == 0:
+                return None
+
+            px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / denom
+            py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / denom
+
+            return int(px), int(py)
+
+        def find_extreme_corners(points):
+            # Find the 4 corners that form the largest quadrilateral
+            hull = cv2.convexHull(np.array(points))
+            return cv2.approxPolyDP(hull, 0.1 * cv2.arcLength(hull, True), True)
+
+        # Apply morphological operations to refine the mask
+        kernel = np.ones((5, 5), np.uint8)
+        refined_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+        # Find contours in the refined mask
+        contours, _ = cv2.findContours(refined_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if not contours:
+            return None, None, None, 0
+
+        # Find the largest contour (assumed to be the TV)
+        largest_contour = max(contours, key=cv2.contourArea)
+        largest_contour_area = cv2.contourArea(largest_contour)
+
+        # Approximate the contour to a polygon
+        epsilon = 0.02 * cv2.arcLength(largest_contour, True)
+        approx = cv2.approxPolyDP(largest_contour, epsilon, True)
+
+        # If we have a quadrilateral, return its corners, contours, mask, and area
+        if len(approx) == 4:
+            corners = approx.reshape(-1, 2)
+            return corners, largest_contour, refined_mask, largest_contour_area
+
+        # If not, use edge detection and line fitting
+        roi = cv2.bitwise_and(image, image, mask=refined_mask)
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 50, 150)
+
+        # Detect lines using Hough Line Transform
+        lines = cv2.HoughLines(edges, 1, np.pi / 180, 100)
+
+        if lines is not None:
+            # Extract the endpoints of the lines
+            endpoints = []
+            for line in lines:
+                rho, theta = line[0]
+                a = np.cos(theta)
+                b = np.sin(theta)
+                x0 = a * rho
+                y0 = b * rho
+                x1 = int(x0 + 1000 * (-b))
+                y1 = int(y0 + 1000 * (a))
+                x2 = int(x0 - 1000 * (-b))
+                y2 = int(y0 - 1000 * (a))
+                endpoints.append(((x1, y1), (x2, y2)))
+
+            # Find intersections of lines
+            corners = []
+            for i in range(len(endpoints)):
+                for j in range(i + 1, len(endpoints)):
+                    pt = line_intersection(endpoints[i], endpoints[j])
+                    if pt is not None:
+                        corners.append(pt)
+
+            # If we have at least 4 corners, return the 4 most extreme ones
+            if len(corners) >= 4:
+                corners = np.array(find_extreme_corners(corners))
+                return corners, largest_contour, refined_mask, largest_contour_area
+
+        return None, largest_contour, refined_mask, largest_contour_area
+
+    def apply_perspective_transform_and_crop(self, target_aspect_ratio=ASPECT_RATIO):
+        """
+        Apply perspective transform to the detected TV corners and crop the image.
+        :param target_aspect_ratio: The aspect ratio for the cropped image.
+        :return: Cropped and transformed image based on the TV's perspective.
+        """
+        if self.tv_last_valid_corners is None:
+            return None  # No valid corners, can't apply perspective transform
+
+        # Optionally scale the corners, in this case, we keep them as is
+        self.scaled_corners = self.tv_last_valid_corners
+
+        src_pts = np.array(self.scaled_corners, dtype="float32")
+
+        # Order the points for perspective transformation
+        def order_points(pts):
+            """Order points for perspective transformation."""
+            x_sorted = pts[np.argsort(pts[:, 0]), :]
+            left_most = x_sorted[:2, :]
+            right_most = x_sorted[-2:, :]  # Get the last two points for right_most
+
+            # Sort the points within left_most and right_most based on their y-coordinates
+            left_most = left_most[np.argsort(left_most[:, 1]), :]
+            (tl, bl) = left_most
+            right_most = right_most[np.argsort(right_most[:, 1]), :]
+            (tr, br) = right_most
+
+            return np.array([tl, tr, br, bl], dtype="float32")
+
+        src_pts_ordered = order_points(src_pts)
+        width = self.current_raw_frame.shape[1]
+        height = self.current_raw_frame.shape[0]
+
+        # Compute the target width and height based on the desired aspect ratio
+        target_width = width
+        target_height = int(width * target_aspect_ratio[1] / target_aspect_ratio[0])
+
+        if target_height > height:
+            target_height = height
+            target_width = int(height * target_aspect_ratio[0] / target_aspect_ratio[1])
+
+        dst_pts = np.array([[0, 0], [target_width, 0], [target_width, target_height], [0, target_height]], dtype="float32")
+
+        # Apply the perspective transformation
+        matrix = cv2.getPerspectiveTransform(src_pts_ordered, dst_pts)
+        self.cropped_transformed = cv2.warpPerspective(self.current_raw_frame, matrix, (target_width, target_height))
+
+        return self.cropped_transformed
+
+    def run(self):
+        """
+        Continuously processes frames from the input queue, detects the TV, and passes the results to the output queue.
+        The next worker can choose to use either the full frame or the transformed and cropped frame.
+        """
+        while self.running:
+            try:
+                if not self.input_queue.empty():
+                    frame = self.input_queue.get()
+                    roi_frame = self.detect_tv(frame)  # Detect the TV and mark it on the frame
+
+                    # Optionally apply perspective transformation and cropping
+                    cropped_frame = self.apply_perspective_transform_and_crop()
+
+                    # Pass both the full frame and the cropped frame to the next worker
+                    if not self.output_queue.full():
+                        self.output_queue.put((roi_frame, cropped_frame))
+                    else:
+                        self.output_queue.get()
+                        self.output_queue.put((roi_frame, cropped_frame))
+
+                else:
+                    if self.last_roi_frame is not None:
+                        if not self.output_queue.full():
+                            self.output_queue.put((self.last_roi_frame, self.cropped_transformed))
+
+            except Exception as e:
+                print(f"Error detecting TV: {e}")
+
+            time.sleep(0.01)
+
+    def stop(self):
+        """
+        Gracefully stops the TV detector by stopping the loop.
+        """
+        self.running = False
+
+
+
+# Independent testing of TVDetector
+def main():
+    # Dummy YOLO model placeholder for testing (replace with actual YOLOv8 model instance)
+    input_queue = queue.Queue(maxsize=1)
+    output_queue = queue.Queue(maxsize=1)
+
+    # Create the TVDetector with the dummy model
+    detector = TVDetector(input_queue, output_queue)
+    detector.start()
+
+    try:
+        # For testing purposes, use VideoCapture to feed frames into the input queue
+        capture = cv2.VideoCapture(0)  # Change to a video file path if needed
+        while True:
+            ret, frame = capture.read()
+            if not ret:
+                break
+
+            if not input_queue.full():
+                input_queue.put(frame)
+
+            if not output_queue.empty():
+                roi_frame, cropped_frame = output_queue.get()
+                cv2.imshow('TV Detection', roi_frame)
+                if cropped_frame is not None:
+                    cv2.imshow('Cropped TV', cropped_frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        capture.release()
+        detector.stop()
+        detector.join()
+        cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
