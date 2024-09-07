@@ -36,26 +36,59 @@ class TVDetector(threading.Thread):
         self.current_raw_frame = frame  # Store the raw frame
         results = self.segmentation_model(frame)  # Perform inference on the frame
 
-        # Filter results to find the TV class (replace 'tv' with your actual class label)
-        tv_class_name = 'tv'  # Replace with the actual class label for TV in your model
-        tv_detections = [result for result in results if result['name'] == tv_class_name]
+        # Extract bounding boxes and masks from results
+        boxes = results[0].boxes  # YOLOv8 bounding boxes
+        masks = results[0].masks  # YOLOv8 segmentation masks
+
+        if boxes is None or masks is None:
+            print("No boxes or masks found in the detection results.")
+            return frame  # No detections found
+
+        # Print detected class IDs to debug the correct class ID
+        print("Detected class IDs:", [int(box.cls) for box in boxes])
+
+        # Filter results to find the TV class (replace 'tv_class_id' with the correct class ID or label)
+        tv_class_id = 62  # Replace this with the correct class ID for TV (based on your detection logs)
+        tv_detections = []
+
+        for i, box in enumerate(boxes):
+            if int(box.cls) == tv_class_id:  # Compare the class ID
+                print(f"Detected TV class with box: {box.xyxy}")
+                tv_detections.append((box, masks.data[i] if masks is not None else None))
 
         if not tv_detections:
+            print("No TV detected based on the provided class ID.")
             return frame  # No TV detected, return the original frame
 
         # Find the largest TV detection based on bounding box area
-        largest_tv = max(tv_detections, key=lambda d: (d['box'][2] - d['box'][0]) * (d['box'][3] - d['box'][1]))
-        (x1, y1, x2, y2) = largest_tv['box']
+        largest_tv, largest_tv_mask = max(tv_detections, key=lambda x: (x[0].xyxy[0, 2] - x[0].xyxy[0, 0]) * (
+                    x[0].xyxy[0, 3] - x[0].xyxy[0, 1]))
 
-        # Assuming the YOLO model also returns a mask (replace with actual mask retrieval logic)
-        mask = largest_tv['mask']  # Use the segmentation mask from YOLO
-        corners, _, refined_mask, _ = self.detect_tv_corners(frame, mask)
+        # Check if the bounding box is valid and has the correct shape
+        if len(largest_tv.xyxy.shape) == 2 and largest_tv.xyxy.shape[1] >= 4:
+            (x1, y1, x2, y2) = largest_tv.xyxy[0].cpu().numpy()  # Extract the coordinates from the tensor
+        elif len(largest_tv.xyxy.shape) == 1 and largest_tv.xyxy.shape[0] == 4:
+            (x1, y1, x2, y2) = largest_tv.xyxy.cpu().numpy()  # Handle 1D case
+        else:
+            print("Bounding box tensor shape is invalid or too small:", largest_tv.xyxy.shape)
+            return frame
 
-        # If corners were found, draw the quadrilateral and store them
-        if corners is not None:
-            self.tv_last_valid_corners = corners  # Store the last valid corners
-            for i in range(4):
-                cv2.line(frame, tuple(corners[i]), tuple(corners[(i + 1) % 4]), (0, 255, 0), 2)
+        # Process the mask to find corners (if mask is not None)
+        if largest_tv_mask is not None:
+            mask = largest_tv_mask.cpu().numpy()  # Use the mask from YOLO
+            corners, _, refined_mask, _ = self.detect_tv_corners(frame, mask)
+
+            # If corners were found, draw the quadrilateral and store them
+            if corners is not None:
+                self.tv_last_valid_corners = corners  # Store the last valid corners
+
+
+                for i in range(4):
+                    cv2.line(frame, tuple(corners[i]), tuple(corners[(i + 1) % 4]), (150, 255, 0), 4)
+            else:
+                print("No valid corners found.")
+        else:
+            print("No mask found for the largest TV detection.")
 
         return frame
 
@@ -88,6 +121,9 @@ class TVDetector(threading.Thread):
             # Find the 4 corners that form the largest quadrilateral
             hull = cv2.convexHull(np.array(points))
             return cv2.approxPolyDP(hull, 0.1 * cv2.arcLength(hull, True), True)
+
+        # Convert the mask from float32 (CV_32FC1) to uint8 (CV_8UC1) for contour detection
+        mask = cv2.convertScaleAbs(mask)  # Converts the mask to 8-bit (scaling the pixel values to [0, 255])
 
         # Apply morphological operations to refine the mask
         kernel = np.ones((5, 5), np.uint8)
@@ -261,6 +297,12 @@ def main():
 
             if not output_queue.empty():
                 roi_frame, cropped_frame = output_queue.get()
+                if detector.tv_last_valid_corners is not None:
+                    for corner in detector.tv_last_valid_corners:
+                        cv2.circle(roi_frame, tuple(np.int32(corner)), radius=5, color=(0,0,255),
+                               thickness=-1)
+                else: print("tv_last_valid_corners is None")
+
                 cv2.imshow('TV Detection', roi_frame)
                 if cropped_frame is not None:
                     cv2.imshow('Cropped TV', cropped_frame)
