@@ -243,25 +243,22 @@ class TVDetector(threading.Thread):
                     print("TVDetector: Frame received from frame_queue")
 
                     roi_frame = self.detect_tv(frame)  # Detect the TV and mark it on the frame
-                    if roi_frame is not None:
+
+                    if roi_frame is not None and isinstance(roi_frame, np.ndarray):
                         print(f"TVDetector: Processed ROI Frame dimensions: {roi_frame.shape}")
+                    else:
+                        print("TVDetector: Invalid ROI Frame detected")
 
                     # Optionally apply perspective transformation and cropping
                     cropped_frame = self.apply_perspective_transform_and_crop()
 
-                    # Debug: Print when putting the processed frame in roi_queue
+                    # Put the processed frame in roi_queue
                     print("TVDetector: Putting ROI Frame in roi_queue")
                     if not self.output_queue.full():
                         self.output_queue.put((roi_frame, cropped_frame))
                     else:
                         self.output_queue.get()  # Remove old frame if queue is full
                         self.output_queue.put((roi_frame, cropped_frame))
-
-                else:
-                    if self.last_roi_frame is not None:
-                        print("TVDetector: No new frame, using last_roi_frame")
-                        if not self.output_queue.full():
-                            self.output_queue.put((self.last_roi_frame, self.cropped_transformed))
 
             except Exception as e:
                 print(f"Error detecting TV: {e}")

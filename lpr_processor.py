@@ -89,15 +89,20 @@ def find_best_match(corner_image, icon_paths, threshold=0.1):
 
     return best_score
 
-
 class LPRProcessor(threading.Thread):
-    def __init__(self, input_queue):
+    def __init__(self, input_queue, output_queue=None):
         super().__init__()
         self.input_queue = input_queue
+        self.output_queue = output_queue
         self.running = True
         self.last_processed_frame = None
+
+        # Restore icon paths initialization
         icon_right_folder = "/home/hailopi/Ad-matay/corners/break/right"
         icon_left_folder = "/home/hailopi/Ad-matay/corners/break/left"
+
+
+
         self.icon_right_paths = get_image_files_from_directory(icon_right_folder)
         self.icon_left_paths = get_image_files_from_directory(icon_left_folder)
 
@@ -105,25 +110,25 @@ class LPRProcessor(threading.Thread):
         while self.running:
             try:
                 if not self.input_queue.empty():
-                    roi_frame = self.input_queue.get()
+                    # Unpack the tuple and get the roi_frame
+                    roi_frame, _ = self.input_queue.get()  # Unpack roi_frame and cropped_frame
                     print("LPRProcessor: ROI frame received from roi_queue")
 
-                    if roi_frame is None or not isinstance(roi_frame, (np.ndarray, np.generic)):
-                        print("Invalid roi_frame passed. Skipping.")
+                    if roi_frame is None or not isinstance(roi_frame, np.ndarray):
+                        print(f"LPRProcessor: Invalid ROI frame type. Expected numpy array, got {type(roi_frame)}")
                         continue
 
-                    # cv2.imshow('LPR Processor - ROI Frame', roi_frame)
-
+                    print(f"LPRProcessor: Valid ROI frame received with dimensions {roi_frame.shape}")
                     self.last_processed_frame = self.run_lprnet(roi_frame)
 
-                # if self.last_processed_frame is not None:
-                    # cv2.imshow('LPR Output', self.last_processed_frame)
+                    # Put the processed frame in the output queue for further handling or display
+                    if self.output_queue and self.last_processed_frame is not None:
+                        if not self.output_queue.full():
+                            print("LPRProcessor: Putting processed frame in processed_queue")
+                            self.output_queue.put(self.last_processed_frame)
 
             except Exception as e:
                 print(f"Error in LPR processing: {e}")
-
-            # if cv2.waitKey(1) & 0xFF == ord('q'):
-            #     self.stop()
 
             time.sleep(0.5)
 
@@ -131,12 +136,9 @@ class LPRProcessor(threading.Thread):
 
     def run_lprnet(self, frame, icon_right_paths='', icon_left_paths='', threshold=0.1):
         """
-        Takes the given frame and compares the top-right and top-left corners using feature matching.
-        Marks the corner that has a match with a green rectangle, otherwise marks it red.
-        Shows the result in an imshow window.
+        Process the ROI frame and mark it accordingly.
         """
-
-        if frame is None or not isinstance(frame, (np.ndarray, np.generic)):
+        if frame is None or not isinstance(frame, np.ndarray):
             print("Invalid frame passed to LPRNet. Skipping.")
             return None
 
@@ -145,13 +147,13 @@ class LPRProcessor(threading.Thread):
             icon_left_paths = self.icon_left_paths
 
         # Get image dimensions and divide into 4x4 grid
-        h, w = frame.shape[:2]  # Ensure 'frame' is a numpy array (not a tuple)
+        h, w = frame.shape[:2]
 
-        grid_h, grid_w = h // 4, w // 4  # Get dimensions of each grid cell
+        grid_h, grid_w = h // 4, w // 4
 
         # Extract top-right and top-left corners as valid image slices
-        top_right_corner = frame[0:grid_h, 3 * grid_w:w]  # Correct slicing for the top-right corner
-        top_left_corner = frame[0:grid_h, 0:grid_w]  # Correct slicing for the top-left corner
+        top_right_corner = frame[0:grid_h, 3 * grid_w:w]
+        top_left_corner = frame[0:grid_h, 0:grid_w]
 
         # Perform feature matching for the top-right and top-left corners
         matches_right = find_best_match(top_right_corner, icon_right_paths, threshold)
@@ -159,29 +161,23 @@ class LPRProcessor(threading.Thread):
 
         # Mark the top-right corner
         if matches_right > threshold:
-            # If match found, draw green rectangle around the top-right corner
             cv2.rectangle(frame, (3 * grid_w, 0), (w, grid_h), (0, 255, 0), 3)
         else:
-            # If no match, draw red rectangle
             cv2.rectangle(frame, (3 * grid_w, 0), (w, grid_h), (0, 0, 255), 3)
 
         # Mark the top-left corner
         if matches_left > threshold:
-            # If match found, draw green rectangle around the top-left corner
             cv2.rectangle(frame, (0, 0), (grid_w, grid_h), (0, 255, 0), 3)
         else:
-            # If no match, draw red rectangle
             cv2.rectangle(frame, (0, 0), (grid_w, grid_h), (0, 0, 255), 3)
 
-        # Show the marked frame
-        # cv2.imshow('LPRNet Result', frame)
-        # cv2.waitKey(1)  # Adjust the wait time if needed
-
+        # Return the processed frame
         return frame
 
     def stop(self):
         self.running = False
         cv2.destroyAllWindows()
+
 
 # Independent testing of LPRProcessor
 # Main function
