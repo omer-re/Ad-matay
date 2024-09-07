@@ -252,8 +252,8 @@ class TVDetector(threading.Thread):
                     # Optionally apply perspective transformation and cropping
                     cropped_frame = self.apply_perspective_transform_and_crop()
 
-                    # Put the processed frame in roi_queue
-                    print("TVDetector: Putting ROI Frame in roi_queue")
+                    # Put both the roi_frame and cropped_frame in roi_queue
+                    print("TVDetector: Putting ROI Frame and Cropped Frame in roi_queue")
                     if not self.output_queue.full():
                         self.output_queue.put((roi_frame, cropped_frame))
                     else:

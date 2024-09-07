@@ -100,9 +100,6 @@ class LPRProcessor(threading.Thread):
         # Restore icon paths initialization
         icon_right_folder = "/home/hailopi/Ad-matay/corners/break/right"
         icon_left_folder = "/home/hailopi/Ad-matay/corners/break/left"
-
-
-
         self.icon_right_paths = get_image_files_from_directory(icon_right_folder)
         self.icon_left_paths = get_image_files_from_directory(icon_left_folder)
 
@@ -110,16 +107,17 @@ class LPRProcessor(threading.Thread):
         while self.running:
             try:
                 if not self.input_queue.empty():
-                    # Unpack the tuple and get the roi_frame
-                    roi_frame, _ = self.input_queue.get()  # Unpack roi_frame and cropped_frame
-                    print("LPRProcessor: ROI frame received from roi_queue")
+                    # Unpack both roi_frame and cropped_frame
+                    roi_frame, cropped_frame = self.input_queue.get()
+                    print("LPRProcessor: Frames received from roi_queue")
 
-                    if roi_frame is None or not isinstance(roi_frame, np.ndarray):
-                        print(f"LPRProcessor: Invalid ROI frame type. Expected numpy array, got {type(roi_frame)}")
+                    if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
+                        print(f"LPRProcessor: Invalid cropped_frame type. Expected numpy array, got {type(cropped_frame)}")
                         continue
 
-                    print(f"LPRProcessor: Valid ROI frame received with dimensions {roi_frame.shape}")
-                    self.last_processed_frame = self.run_lprnet(roi_frame)
+                    print(f"LPRProcessor: Valid cropped_frame received with dimensions {cropped_frame.shape}")
+                    # Process the cropped frame
+                    self.last_processed_frame = self.run_lprnet(cropped_frame)
 
                     # Put the processed frame in the output queue for further handling or display
                     if self.output_queue and self.last_processed_frame is not None:
@@ -134,26 +132,29 @@ class LPRProcessor(threading.Thread):
 
         print("LPRProcessor stopped")
 
-    def run_lprnet(self, frame, icon_right_paths='', icon_left_paths='', threshold=0.1):
+    def run_lprnet(self, cropped_frame, icon_right_paths='', icon_left_paths='', threshold=0.1):
         """
-        Process the ROI frame and mark it accordingly.
+        Takes the cropped frame and compares the top-right and top-left corners using feature matching.
+        Marks the corner that has a match with a green rectangle, otherwise marks it red.
         """
-        if frame is None or not isinstance(frame, np.ndarray):
-            print("Invalid frame passed to LPRNet. Skipping.")
+
+        if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
+            print("Invalid cropped_frame passed to LPRNet. Skipping.")
             return None
 
+        # Use the class attributes for icon paths if none are provided
         if icon_right_paths == '' or icon_left_paths == '':
             icon_right_paths = self.icon_right_paths
             icon_left_paths = self.icon_left_paths
 
         # Get image dimensions and divide into 4x4 grid
-        h, w = frame.shape[:2]
+        h, w = cropped_frame.shape[:2]
 
         grid_h, grid_w = h // 4, w // 4
 
         # Extract top-right and top-left corners as valid image slices
-        top_right_corner = frame[0:grid_h, 3 * grid_w:w]
-        top_left_corner = frame[0:grid_h, 0:grid_w]
+        top_right_corner = cropped_frame[0:grid_h, 3 * grid_w:w]
+        top_left_corner = cropped_frame[0:grid_h, 0:grid_w]
 
         # Perform feature matching for the top-right and top-left corners
         matches_right = find_best_match(top_right_corner, icon_right_paths, threshold)
@@ -161,18 +162,20 @@ class LPRProcessor(threading.Thread):
 
         # Mark the top-right corner
         if matches_right > threshold:
-            cv2.rectangle(frame, (3 * grid_w, 0), (w, grid_h), (0, 255, 0), 3)
+            cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 255, 0), 3)
+            print("RIGHT CORNER ADS")
         else:
-            cv2.rectangle(frame, (3 * grid_w, 0), (w, grid_h), (0, 0, 255), 3)
+            cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 0, 255), 3)
 
         # Mark the top-left corner
         if matches_left > threshold:
-            cv2.rectangle(frame, (0, 0), (grid_w, grid_h), (0, 255, 0), 3)
+            cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (0, 255, 0), 3)
+            print("LEFT CORNER ADS")
         else:
-            cv2.rectangle(frame, (0, 0), (grid_w, grid_h), (0, 0, 255), 3)
+            cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (0, 0, 255), 3)
 
-        # Return the processed frame
-        return frame
+        # Return the processed cropped frame
+        return cropped_frame
 
     def stop(self):
         self.running = False
