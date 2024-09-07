@@ -236,35 +236,38 @@ class TVDetector(threading.Thread):
         return self.cropped_transformed
 
     def run(self):
-        """
-        Continuously processes frames from the input queue, detects the TV, and passes the results to the output queue.
-        The next worker can choose to use either the full frame or the transformed and cropped frame.
-        """
         while self.running:
             try:
                 if not self.input_queue.empty():
                     frame = self.input_queue.get()
+                    print("TVDetector: Frame received from frame_queue")
+
                     roi_frame = self.detect_tv(frame)  # Detect the TV and mark it on the frame
+                    if roi_frame is not None:
+                        print(f"TVDetector: Processed ROI Frame dimensions: {roi_frame.shape}")
 
                     # Optionally apply perspective transformation and cropping
                     cropped_frame = self.apply_perspective_transform_and_crop()
 
-                    # Pass both the full frame and the cropped frame to the next worker
+                    # Debug: Print when putting the processed frame in roi_queue
+                    print("TVDetector: Putting ROI Frame in roi_queue")
                     if not self.output_queue.full():
                         self.output_queue.put((roi_frame, cropped_frame))
                     else:
-                        self.output_queue.get()
+                        self.output_queue.get()  # Remove old frame if queue is full
                         self.output_queue.put((roi_frame, cropped_frame))
 
                 else:
                     if self.last_roi_frame is not None:
+                        print("TVDetector: No new frame, using last_roi_frame")
                         if not self.output_queue.full():
                             self.output_queue.put((self.last_roi_frame, self.cropped_transformed))
 
             except Exception as e:
                 print(f"Error detecting TV: {e}")
-
             time.sleep(0.01)
+
+        print("TVDetector stopped")
 
     def stop(self):
         """
@@ -286,7 +289,7 @@ def main():
 
     try:
         # For testing purposes, use VideoCapture to feed frames into the input queue
-        capture = cv2.VideoCapture(0)  # Change to a video file path if needed
+        capture = cv2.VideoCapture('http://192.168.1.195:4747/video')  # Change to a video file path if needed
         while True:
             ret, frame = capture.read()
             if not ret:
@@ -303,9 +306,9 @@ def main():
                                thickness=-1)
                 else: print("tv_last_valid_corners is None")
 
-                cv2.imshow('TV Detection', roi_frame)
-                if cropped_frame is not None:
-                    cv2.imshow('Cropped TV', cropped_frame)
+                # cv2.imshow('TV Detection', roi_frame)
+                # if cropped_frame is not None:
+                #     cv2.imshow('Cropped TV', cropped_frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
