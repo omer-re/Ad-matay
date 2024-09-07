@@ -310,8 +310,8 @@ def main():
                 # if cropped_frame is not None:
                 #     cv2.imshow('Cropped TV', cropped_frame)
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     break
 
     except KeyboardInterrupt:
         pass

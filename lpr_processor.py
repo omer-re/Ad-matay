@@ -122,8 +122,8 @@ class LPRProcessor(threading.Thread):
             except Exception as e:
                 print(f"Error in LPR processing: {e}")
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                self.stop()
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     self.stop()
 
             time.sleep(0.5)
 
