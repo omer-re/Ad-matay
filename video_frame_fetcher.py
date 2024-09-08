@@ -10,8 +10,15 @@ class VideoFrameFetcher(threading.Thread):
         super().__init__()
         self.video_source = video_source
         self.output_queue = output_queue
-        self.capture = cv2.VideoCapture(video_source, cv2.CAP_V4L2)
-        # self.capture = cv2.VideoCapture(video_source)
+        # Check if the video source is an MP4 file
+        if isinstance(self.video_source, str) and self.video_source.endswith('.mp4'):
+            print("Using FFMPEG backend for MP4 file")
+            self.capture = cv2.VideoCapture(video_source, cv2.CAP_FFMPEG)  # Use FFMPEG for MP4 files
+        else:
+            print("Using default backend")
+            self.capture = cv2.VideoCapture(video_source, cv2.CAP_V4L2)  # Use V4L2 for other sources
+
+
         self.running = True
         self.last_frame = None
         self.input=None

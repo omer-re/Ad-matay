@@ -50,9 +50,9 @@ def main():
     processed_queue = queue.Queue(maxsize=1)  # Queue for processed frames
 
     # Input source: This can be an IP, a USB camera index, or a file path.
-    input_source = 0  # For USB camera
+    # input_source = 0  # For USB camera
     # input_source = 'http://192.168.1.195:4747/video'  # Example IP camera, change as needed
-    # input_source = '/path/to/video.mp4'  # For a video file
+    input_source = '/home/hailopi/Ad-matay/video_examples/hq_tv_on.mp4'  # For a video file
 
     # Determine the source type (IP camera, USB camera, or video file)
     video_source = determine_source(input_source)
