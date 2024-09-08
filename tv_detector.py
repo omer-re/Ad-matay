@@ -85,7 +85,7 @@ class TVDetector(threading.Thread):
         x1, y1, x2, y2 = map(int, bbox_np)
 
         # Draw bounding box on the frame (marking the detected TV)
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
+        # cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 100), 3)
 
         # Process the mask to find corners (if mask is not None)
         if largest_tv_mask is not None:
@@ -100,7 +100,7 @@ class TVDetector(threading.Thread):
                 for i in range(4):
                     pt1 = tuple(map(int, corners[i]))
                     pt2 = tuple(map(int, corners[(i + 1) % 4]))
-                    cv2.line(frame, pt1, pt2, (150, 255, 0), 4)
+                    cv2.line(frame, pt1, pt2, (150, 255, 0), 3)
             else:
                 print("No valid corners found.")
         else:

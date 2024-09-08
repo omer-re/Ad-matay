@@ -160,23 +160,28 @@ class LPRProcessor(threading.Thread):
         # Perform feature matching for the top-right and top-left corners
         matches_right = find_best_match(top_right_corner, icon_right_paths, threshold)
         matches_left = find_best_match(top_left_corner, icon_left_paths, threshold)
+        font = cv2.FONT_HERSHEY_SIMPLEX
 
         # Mark the top-right corner
         if matches_right > threshold:
             cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 255, 0), 3)
+            cv2.putText(cropped_frame, "AD", (3*grid_w, grid_h), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
             print(">> RIGHT CORNER ADS")
         else:
-            cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 0, 255), 3)
+            cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (255, 0, 0), 3)
+            cv2.putText(cropped_frame, "Non Ad", (3 * grid_w, grid_h), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
             print(">> RIGHT CORNER CONTENT")
 
 
         # Mark the top-left corner
         if matches_left > threshold:
             cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (0, 255, 0), 3)
+            cv2.putText(cropped_frame, "AD", (grid_w, grid_h), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
             print(">> LEFT CORNER ADS")
         else:
             print(">> LEFT CORNER CONTENT")
-            cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (0, 0, 255), 3)
+            cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (255, 0, 0), 3)
+            cv2.putText(cropped_frame, "Non Ad", (grid_w, grid_h), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
 
         # Return the processed cropped frame
         return cropped_frame
