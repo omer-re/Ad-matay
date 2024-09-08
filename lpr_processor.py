@@ -96,7 +96,8 @@ class LPRProcessor(threading.Thread):
         self.output_queue = output_queue
         self.running = True
         self.last_processed_frame = None
-
+        self.input=None
+        self.output=None
         # Restore icon paths initialization
         icon_right_folder = "/home/hailopi/Ad-matay/corners/break/right"
         icon_left_folder = "/home/hailopi/Ad-matay/corners/break/left"
@@ -110,7 +111,7 @@ class LPRProcessor(threading.Thread):
                     # Unpack both roi_frame and cropped_frame
                     roi_frame, cropped_frame = self.input_queue.get()
                     print("LPRProcessor: Frames received from roi_queue")
-
+                    self.input=cropped_frame
                     if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
                         print(f"LPRProcessor: Invalid cropped_frame type. Expected numpy array, got {type(cropped_frame)}")
                         continue
@@ -124,7 +125,7 @@ class LPRProcessor(threading.Thread):
                         if not self.output_queue.full():
                             print("LPRProcessor: Putting processed frame in processed_queue")
                             self.output_queue.put(self.last_processed_frame)
-
+                    self.output=self.last_processed_frame
             except Exception as e:
                 print(f"Error in LPR processing: {e}")
 

@@ -25,6 +25,8 @@ class TVDetector(threading.Thread):
         self.tv_last_valid_corners = None  # Holds the last valid TV corners
         self.current_raw_frame = None  # Holds the current raw frame
         self.cropped_transformed = None  # Holds the transformed and cropped frame
+        self.input=None
+        self.output=None
 
     def detect_tv(self, frame):
         """
@@ -60,28 +62,30 @@ class TVDetector(threading.Thread):
             print("No TV detected based on the provided class ID.")
             return frame  # No TV detected, return the original frame
 
-        # Handle a single detection or multiple detections
-        if len(tv_detections) == 1:
-            largest_tv, largest_tv_mask = tv_detections[0]  # Only one detection
+        # Find the largest TV detection based on bounding box area
+        if len(tv_detections)==1:
+            largest_tv, largest_tv_mask = tv_detections[0]  # Directly take the first detection (no need for max)
         else:
-            # Find the largest TV detection based on bounding box area
             largest_tv, largest_tv_mask = max(tv_detections, key=lambda x: (x[0].xyxy[2] - x[0].xyxy[0]) * (
-                        x[0].xyxy[3] - x[0].xyxy[1]))
+                x[0].xyxy[3] - x[0].xyxy[1]))
 
         # Debugging: Check the shape of bounding box tensor
         print(f"Bounding box shape: {largest_tv.xyxy.shape}")
 
         # Check if the bounding box is 1D or 2D and extract coordinates safely
-        if len(largest_tv.xyxy.shape) == 2 and largest_tv.xyxy.shape[1] >= 4:
-            bbox_np = largest_tv.xyxy[0].cpu().numpy()  # Get the first row of the bounding box tensor (2D case)
+        if len(largest_tv.xyxy.shape) == 2 and largest_tv.xyxy.shape[0] == 1:
+            bbox_np = largest_tv.xyxy[0].cpu().numpy()  # Extract the first bounding box (if 2D with one row)
         elif len(largest_tv.xyxy.shape) == 1 and largest_tv.xyxy.shape[0] == 4:
-            bbox_np = largest_tv.xyxy.cpu().numpy()  # Handle 1D case (single detection)
+            bbox_np = largest_tv.xyxy.cpu().numpy()  # Extract directly if 1D (single detection)
         else:
             print("Bounding box tensor shape is invalid or too small:", largest_tv.xyxy.shape)
             return frame
 
         # Convert bounding box coordinates to integers
         x1, y1, x2, y2 = map(int, bbox_np)
+
+        # Draw bounding box on the frame (marking the detected TV)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
 
         # Process the mask to find corners (if mask is not None)
         if largest_tv_mask is not None:
@@ -92,7 +96,7 @@ class TVDetector(threading.Thread):
             if corners is not None:
                 self.tv_last_valid_corners = corners  # Store the last valid corners
 
-                # Ensure corners are valid tuples and draw lines
+                # Ensure corners are valid tuples and draw lines around the corners
                 for i in range(4):
                     pt1 = tuple(map(int, corners[i]))
                     pt2 = tuple(map(int, corners[(i + 1) % 4]))
@@ -101,6 +105,9 @@ class TVDetector(threading.Thread):
                 print("No valid corners found.")
         else:
             print("No mask found for the largest TV detection.")
+
+        # Update self.output with the frame marked with the TV bounding box
+        # self.output = frame
 
         return frame
 
@@ -134,8 +141,13 @@ class TVDetector(threading.Thread):
             hull = cv2.convexHull(np.array(points))
             return cv2.approxPolyDP(hull, 0.1 * cv2.arcLength(hull, True), True)
 
-        # Convert the mask from float32 (CV_32FC1) to uint8 (CV_8UC1) for contour detection
-        mask = cv2.convertScaleAbs(mask)  # Converts the mask to 8-bit (scaling the pixel values to [0, 255])
+        # Ensure mask is converted to 8-bit format for OpenCV operations
+        mask = cv2.convertScaleAbs(mask)  # Converts mask to 8-bit (uint8)
+
+        # Ensure the mask is the same size as the input image
+        if mask.shape[:2] != image.shape[:2]:
+            print(f"Resizing mask from {mask.shape[:2]} to {image.shape[:2]}")
+            mask = cv2.resize(mask, (image.shape[1], image.shape[0]))  # Resize mask to match image size
 
         # Apply morphological operations to refine the mask
         kernel = np.ones((5, 5), np.uint8)
@@ -253,6 +265,7 @@ class TVDetector(threading.Thread):
                 print("TVDetector: 249")
                 if not self.input_queue.empty():
                     frame = self.input_queue.get()
+                    self.input=frame
                     print("TVDetector: Frame received from frame_queue")
 
                     roi_frame = self.detect_tv(frame)  # Detect the TV and mark it on the frame
@@ -267,6 +280,7 @@ class TVDetector(threading.Thread):
                     print("TVDetector: 263")
                     # Put both the roi_frame and cropped_frame in roi_queue
                     print("TVDetector: Putting ROI Frame and Cropped Frame in roi_queue")
+                    self.output=roi_frame
                     if not self.output_queue.full():
                         print("TVDetector: 267 Queue full")
                         self.output_queue.put((roi_frame, cropped_frame))

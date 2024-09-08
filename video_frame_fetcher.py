@@ -14,18 +14,14 @@ class VideoFrameFetcher(threading.Thread):
         # self.capture = cv2.VideoCapture(video_source)
         self.running = True
         self.last_frame = None
-
+        self.input=None
+        self.output=None
         # Set resolution to the maximum supported by the camera (1080p example)
         max_width = 1280  # Set to 1920 for Full HD (1080p)
         max_height = 720  # Set to 1080 for Full HD (1080p)
         # self.capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, max_width)
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, max_height)
-
-
-
-
-
 
         # Verify the resolution that is actually being used
         actual_width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -39,7 +35,8 @@ class VideoFrameFetcher(threading.Thread):
                 if not ret:
                     raise Exception("Failed to fetch frame")
                 self.last_frame = frame
-
+                self.input=frame
+                self.output=frame
                 if not self.output_queue.full():
                     self.output_queue.put(frame)
                 else:
