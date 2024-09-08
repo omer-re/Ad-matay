@@ -3,14 +3,34 @@ import threading
 import queue
 import time
 
+
+
 class VideoFrameFetcher(threading.Thread):
     def __init__(self, video_source, output_queue):
         super().__init__()
         self.video_source = video_source
         self.output_queue = output_queue
-        self.capture = cv2.VideoCapture(video_source)
+        self.capture = cv2.VideoCapture(video_source, cv2.CAP_V4L2)
+        # self.capture = cv2.VideoCapture(video_source)
         self.running = True
         self.last_frame = None
+
+        # Set resolution to the maximum supported by the camera (1080p example)
+        max_width = 1280  # Set to 1920 for Full HD (1080p)
+        max_height = 720  # Set to 1080 for Full HD (1080p)
+        # self.capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, max_width)
+        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, max_height)
+
+
+
+
+
+
+        # Verify the resolution that is actually being used
+        actual_width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+        actual_height = self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        print(f"VideoCapture resolution set to: {int(actual_width)}x{int(actual_height)}")
 
     def run(self):
         while self.running:
@@ -23,7 +43,7 @@ class VideoFrameFetcher(threading.Thread):
                 if not self.output_queue.full():
                     self.output_queue.put(frame)
                 else:
-                    self.output_queue.get()
+                    self.output_queue.get()  # Remove old frame if queue is full
                     self.output_queue.put(frame)
 
             except Exception as e:
@@ -36,6 +56,7 @@ class VideoFrameFetcher(threading.Thread):
     def stop(self):
         self.running = False
         self.capture.release()
+
 
 # Independent testing of VideoFrameFetcher
 def main():

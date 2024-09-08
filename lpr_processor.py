@@ -163,15 +163,18 @@ class LPRProcessor(threading.Thread):
         # Mark the top-right corner
         if matches_right > threshold:
             cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 255, 0), 3)
-            print("RIGHT CORNER ADS")
+            print(">> RIGHT CORNER ADS")
         else:
             cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 0, 255), 3)
+            print(">> RIGHT CORNER CONTENT")
+
 
         # Mark the top-left corner
         if matches_left > threshold:
             cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (0, 255, 0), 3)
-            print("LEFT CORNER ADS")
+            print(">> LEFT CORNER ADS")
         else:
+            print(">> LEFT CORNER CONTENT")
             cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (0, 0, 255), 3)
 
         # Return the processed cropped frame

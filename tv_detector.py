@@ -48,7 +48,7 @@ class TVDetector(threading.Thread):
         print("Detected class IDs:", [int(box.cls) for box in boxes])
 
         # Filter results to find the TV class (replace 'tv_class_id' with the correct class ID or label)
-        tv_class_id = 62  # Replace this with the correct class ID for TV (based on your detection logs)
+        tv_class_id = 62  # Replace this with the correct class ID for TV
         tv_detections = []
 
         for i, box in enumerate(boxes):
@@ -60,18 +60,28 @@ class TVDetector(threading.Thread):
             print("No TV detected based on the provided class ID.")
             return frame  # No TV detected, return the original frame
 
-        # Find the largest TV detection based on bounding box area
-        largest_tv, largest_tv_mask = max(tv_detections, key=lambda x: (x[0].xyxy[0, 2] - x[0].xyxy[0, 0]) * (
-                    x[0].xyxy[0, 3] - x[0].xyxy[0, 1]))
+        # Handle a single detection or multiple detections
+        if len(tv_detections) == 1:
+            largest_tv, largest_tv_mask = tv_detections[0]  # Only one detection
+        else:
+            # Find the largest TV detection based on bounding box area
+            largest_tv, largest_tv_mask = max(tv_detections, key=lambda x: (x[0].xyxy[2] - x[0].xyxy[0]) * (
+                        x[0].xyxy[3] - x[0].xyxy[1]))
 
-        # Check if the bounding box is valid and has the correct shape
+        # Debugging: Check the shape of bounding box tensor
+        print(f"Bounding box shape: {largest_tv.xyxy.shape}")
+
+        # Check if the bounding box is 1D or 2D and extract coordinates safely
         if len(largest_tv.xyxy.shape) == 2 and largest_tv.xyxy.shape[1] >= 4:
-            (x1, y1, x2, y2) = largest_tv.xyxy[0].cpu().numpy()  # Extract the coordinates from the tensor
+            bbox_np = largest_tv.xyxy[0].cpu().numpy()  # Get the first row of the bounding box tensor (2D case)
         elif len(largest_tv.xyxy.shape) == 1 and largest_tv.xyxy.shape[0] == 4:
-            (x1, y1, x2, y2) = largest_tv.xyxy.cpu().numpy()  # Handle 1D case
+            bbox_np = largest_tv.xyxy.cpu().numpy()  # Handle 1D case (single detection)
         else:
             print("Bounding box tensor shape is invalid or too small:", largest_tv.xyxy.shape)
             return frame
+
+        # Convert bounding box coordinates to integers
+        x1, y1, x2, y2 = map(int, bbox_np)
 
         # Process the mask to find corners (if mask is not None)
         if largest_tv_mask is not None:
@@ -82,9 +92,11 @@ class TVDetector(threading.Thread):
             if corners is not None:
                 self.tv_last_valid_corners = corners  # Store the last valid corners
 
-
+                # Ensure corners are valid tuples and draw lines
                 for i in range(4):
-                    cv2.line(frame, tuple(corners[i]), tuple(corners[(i + 1) % 4]), (150, 255, 0), 4)
+                    pt1 = tuple(map(int, corners[i]))
+                    pt2 = tuple(map(int, corners[(i + 1) % 4]))
+                    cv2.line(frame, pt1, pt2, (150, 255, 0), 4)
             else:
                 print("No valid corners found.")
         else:
@@ -238,12 +250,13 @@ class TVDetector(threading.Thread):
     def run(self):
         while self.running:
             try:
+                print("TVDetector: 249")
                 if not self.input_queue.empty():
                     frame = self.input_queue.get()
                     print("TVDetector: Frame received from frame_queue")
 
                     roi_frame = self.detect_tv(frame)  # Detect the TV and mark it on the frame
-
+                    print("TVDetector: 255")
                     if roi_frame is not None and isinstance(roi_frame, np.ndarray):
                         print(f"TVDetector: Processed ROI Frame dimensions: {roi_frame.shape}")
                     else:
@@ -251,15 +264,18 @@ class TVDetector(threading.Thread):
 
                     # Optionally apply perspective transformation and cropping
                     cropped_frame = self.apply_perspective_transform_and_crop()
-
+                    print("TVDetector: 263")
                     # Put both the roi_frame and cropped_frame in roi_queue
                     print("TVDetector: Putting ROI Frame and Cropped Frame in roi_queue")
                     if not self.output_queue.full():
+                        print("TVDetector: 267 Queue full")
                         self.output_queue.put((roi_frame, cropped_frame))
                     else:
+                        print("TVDetector: 270")
                         self.output_queue.get()  # Remove old frame if queue is full
                         self.output_queue.put((roi_frame, cropped_frame))
-
+                else:
+                    print("TVDetector: 274 queue is empty")
             except Exception as e:
                 print(f"Error detecting TV: {e}")
             time.sleep(0.01)
