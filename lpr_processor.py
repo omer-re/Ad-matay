@@ -9,10 +9,10 @@ import pickle
 from PIL import Image
 import torchvision.transforms as transforms
 from numpy.linalg import norm
-import timm
+import matplotlib.pyplot as plt
 
-# Load the ResNet-50 model (same as used for generating the example features)
-model = timm.create_model('resnet50', pretrained=True)
+# Load the DINO ResNet-50 model
+model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
 model.eval()  # Set model to evaluation mode
 
 # Define transformation for input images (resize and normalize)
@@ -22,64 +22,20 @@ preprocess = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-# Function to extract features from an input image
+
+# Function to extract features from an input image using DINO ResNet-50
 def extract_features(image):
     input_tensor = preprocess(image).unsqueeze(0)  # Add batch dimension
     with torch.no_grad():
-        features = model(input_tensor).squeeze(0).numpy()
+        # Directly pass the input through the model to extract features
+        features = model(input_tensor)  # Extract features using DINO ResNet-50 model
+        features = features.squeeze(0).cpu().numpy()  # Convert to numpy array
     return features
 
 # Function to list all image files from a directory
 def get_image_files_from_directory(directory):
     image_extensions = ['.png', '.jpg', '.jpeg']
     return [os.path.join(directory, f) for f in os.listdir(directory) if any(f.endswith(ext) for ext in image_extensions)]
-
-# Old function for SIFT-based matching (kept but not used)
-def find_best_match(corner_image, icon_paths, threshold=0.1):
-    best_score = 0.0
-    for icon_path in icon_paths:
-        icon_img = cv2.imread(icon_path, 0)  # Load icon as grayscale
-        gray_corner = cv2.cvtColor(corner_image, cv2.COLOR_BGR2GRAY)  # Convert the corner image to grayscale
-
-        sift = cv2.SIFT_create()
-        kp1, des1 = sift.detectAndCompute(gray_corner, None)
-        kp2, des2 = sift.detectAndCompute(icon_img, None)
-
-        if des1 is None or des2 is None:
-            continue
-
-        FLANN_INDEX_KDTREE = 0
-        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-        search_params = dict(checks=50)
-        flann = cv2.FlannBasedMatcher(index_params, search_params)
-
-        matches = flann.knnMatch(des1, des2, k=2)
-
-        good_matches = []
-        all_distances = []
-        for match1, match2 in matches:
-            if match1.distance < 0.7 * match2.distance:
-                good_matches.append(match1)
-                all_distances.append(match1.distance)
-
-        if not good_matches or not all_distances:
-            continue
-
-        num_good_matches = len(good_matches)
-        avg_distance = sum(all_distances) / len(all_distances)
-        total_matches = len(matches)
-        max_distance = max(all_distances)
-
-        if total_matches == 0 or max_distance == 0:
-            continue
-
-        confidence_score = (num_good_matches / total_matches) * (1 - avg_distance / max_distance)
-        if confidence_score > best_score:
-            best_score = confidence_score
-        if best_score > threshold:
-            break
-
-    return best_score
 
 # Define function for cosine similarity
 def cosine_similarity(feature1, feature2):
@@ -95,8 +51,8 @@ class LPRProcessor(threading.Thread):
         self.input = None
         self.output = None
 
-        # Load example features into a class attribute
-        with open('example_features.pkl', 'rb') as f:
+        # Load the precomputed example features (new DINO features)
+        with open('example_features_dino.pkl', 'rb') as f:
             self.example_features = pickle.load(f)
 
         # Restore icon paths initialization
@@ -113,7 +69,8 @@ class LPRProcessor(threading.Thread):
                     print("LPRProcessor: Frames received from roi_queue")
                     self.input = cropped_frame
                     if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
-                        print(f"LPRProcessor: Invalid cropped_frame type. Expected numpy array, got {type(cropped_frame)}")
+                        print(
+                            f"LPRProcessor: Invalid cropped_frame type. Expected numpy array, got {type(cropped_frame)}")
                         continue
 
                     print(f"LPRProcessor: Valid cropped_frame received with dimensions {cropped_frame.shape}")
@@ -133,64 +90,34 @@ class LPRProcessor(threading.Thread):
 
         print("LPRProcessor stopped")
 
-    def run_lprnet(self, cropped_frame, threshold=0.9):
+    def run_lprnet(self, cropped_frame, threshold=0.6):
         if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
             print("Invalid cropped_frame passed to LPRNet. Skipping.")
             return None
 
-        # Get image dimensions and divide into 4x4 grid
-        h, w = cropped_frame.shape[:2]
-        grid_h, grid_w = h // 4, w // 4
+        # Extract features from cropped_frame (assuming DINO model is being used)
+        features = extract_features(Image.fromarray(cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2RGB)))
 
-        # Extract top-right and top-left corners as valid image slices
-        top_right_corner = cropped_frame[0:grid_h, 3 * grid_w:w]
-        top_left_corner = cropped_frame[0:grid_h, 0:grid_w]
+        # Perform feature matching with precomputed DINO features
+        matches = self.find_best_dino_match(features, threshold)
 
-        # Convert the corners to PIL images for feature extraction
-        top_right_pil = Image.fromarray(cv2.cvtColor(top_right_corner, cv2.COLOR_BGR2RGB))
-        top_left_pil = Image.fromarray(cv2.cvtColor(top_left_corner, cv2.COLOR_BGR2RGB))
-
-        # Extract features from the top-right and top-left corners
-        top_right_features = extract_features(top_right_pil)
-        top_left_features = extract_features(top_left_pil)
-
-        # Perform feature matching with precomputed example features
-        matches_right = self.find_best_dino_match(top_right_features, threshold)
-        # matches_left = self.find_best_dino_match(top_left_features, threshold)
-
+        # Handle the result
         font = cv2.FONT_HERSHEY_SIMPLEX
-
-        # Mark the top-right corner
-        if matches_right > threshold:
-            cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 255, 0), 3)
-            cv2.putText(cropped_frame, f"AD {matches_right:.2f}", (3 * grid_w, grid_h), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
-            print(">> RIGHT CORNER ADS")
+        if matches > threshold:
+            cv2.putText(cropped_frame, f"AD {matches:.2f}", (50, 50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
         else:
-            cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (255, 0, 0), 3)
-            cv2.putText(cropped_frame, f"Non Ad {matches_right:.2f}", (3 * grid_w, grid_h), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
-            print(">> RIGHT CORNER CONTENT")
-
-        # # Mark the top-left corner
-        # if matches_left > threshold:
-        #     cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (0, 255, 0), 3)
-        #     cv2.putText(cropped_frame, f"AD {matches_left:.2f}", (grid_w, grid_h), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
-        #     print(">> LEFT CORNER ADS")
-        # else:
-        #     print(">> LEFT CORNER CONTENT")
-        #     cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (255, 0, 0), 3)
-        #     cv2.putText(cropped_frame, f"Non Ad {matches_left:.2f}", (grid_w, grid_h), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(cropped_frame, f"Non-Ad {matches:.2f}", (50, 50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         return cropped_frame
-
     def find_best_dino_match(self, corner_features, threshold):
         best_score = 0.0
-        best_score_ref=''
+        best_score_ref = ''
         # Access the precomputed example features using self.example_features
         for filename, example_feature in self.example_features.items():
             similarity_score = cosine_similarity(corner_features, example_feature)
             if similarity_score > best_score:
                 best_score = similarity_score
-                best_score_ref=filename
+                best_score_ref = filename
             if best_score > threshold:
                 break
         print(f'{best_score_ref=}')
@@ -199,6 +126,7 @@ class LPRProcessor(threading.Thread):
     def stop(self):
         self.running = False
         cv2.destroyAllWindows()
+
 
 
 # Independent testing of LPRProcessor

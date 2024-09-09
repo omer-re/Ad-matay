@@ -22,37 +22,42 @@ import os
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
-import timm
 import pickle
-import tqdm
 
-# Load DINO model (use ResNet50 variant for feature extraction)
-model = timm.create_model('resnet50', pretrained=True)
+# Load the DINO ResNet-50 model
+model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
 model.eval()  # Set model to evaluation mode
 
-# Transformation for images (resize, normalize)
+# Define transformation for input images (resize and normalize)
 preprocess = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
+# Function to extract features from an input image
+def extract_features(image):
+    input_tensor = preprocess(image).unsqueeze(0)  # Add batch dimension
+    with torch.no_grad():
+        # Pass the input through the DINO ResNet-50 model directly
+        features = model(input_tensor)  # Extract features using the DINO ResNet-50 model
+        features = features.squeeze(0).cpu().numpy()  # Convert to numpy
+    return features
+
+
 # Folder containing example images
 example_folder = "corners/break/right"
 example_features = {}
-
+import tqdm
 # Extract features for each example image
-with torch.no_grad():
-    for filename in tqdm.tqdm(os.listdir(example_folder)):
-        if filename.endswith(".jpg") or filename.endswith(".png"):
-            print(f'Processing {filename}')
-            img_path = os.path.join(example_folder, filename)
-            img = Image.open(img_path).convert('RGB')
-            input_tensor = preprocess(img).unsqueeze(0)  # Create a batch of 1
+# Iterate through all images in the directory and extract features
+for filename in tqdm.tqdm(os.listdir(example_folder)):
+    if filename.endswith('.jpg') or filename.endswith('.png'):
+        image_path = os.path.join(example_folder, filename)
+        image = Image.open(image_path).convert('RGB')
+        features = extract_features(image)
+        example_features[filename] = features
 
-            # Extract features from the image
-            features = model(input_tensor).squeeze(0).numpy()
-            example_features[filename] = features
-
-with open('../example_features.pkl', 'wb') as f:
+# Save the features to a .pkl file
+with open('example_features_dino.pkl', 'wb') as f:
     pickle.dump(example_features, f)

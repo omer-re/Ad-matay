@@ -6,7 +6,6 @@ import pickle
 from PIL import Image
 import torchvision.transforms as transforms
 from numpy.linalg import norm
-import timm
 import matplotlib.pyplot as plt
 
 # Load the precomputed example features from the .pkl file
@@ -19,8 +18,8 @@ def cosine_similarity(feature1, feature2):
     return np.dot(feature1, feature2) / (norm(feature1) * norm(feature2))
 
 
-# Load the ResNet-50 model (same as used for generating the example features)
-model = timm.create_model('resnet50', pretrained=True)
+# Load the DINO ResNet-50 model
+model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
 model.eval()  # Set model to evaluation mode
 
 # Define transformation for input images (resize and normalize)
@@ -35,7 +34,8 @@ preprocess = transforms.Compose([
 def extract_features(image):
     input_tensor = preprocess(image).unsqueeze(0)  # Add batch dimension
     with torch.no_grad():
-        features = model(input_tensor).squeeze(0).numpy()
+        features = model(input_tensor)  # Extract features using DINO ResNet-50
+        features = features.squeeze(0).cpu().numpy()  # Convert to numpy
     return features
 
 
@@ -66,6 +66,7 @@ def get_frame(source):
 
 # Function to visualize the comparison
 def visualize_similarity(frame_image, best_match_image_path, similarity_score):
+    return
     best_match_image = Image.open(best_match_image_path).convert('RGB')
 
     # Show the two images side by side with the similarity score
@@ -108,7 +109,7 @@ def compare_frame_to_examples(source):
     # Visualize the best match
     if best_match:
         best_match_path = os.path.join("../corners/break/right", best_match)  # Adjust path to match example images folder
-        visualize_similarity(frame, best_match_path, best_score)
+        # visualize_similarity(frame, best_match_path, best_score)
 
 
 # Example usage:
@@ -119,4 +120,4 @@ def compare_frame_to_examples(source):
 # To use a JPG file: compare_frame_to_examples('image.jpg')
 
 # compare_frame_to_examples('camera')  # Replace with 'camera', 'video.mp4', or 'image.jpg'
-compare_frame_to_examples('/home/hailopi/Ad-matay/channels_icon/break/right/13_16 04.02.2022(2f5).png')  # Replace with 'camera', 'video.mp4', or 'image.jpg'
+compare_frame_to_examples(r'samples/break/tv_ad_example.jpg')  # Replace with 'camera', 'video.mp4', or 'image.jpg'

@@ -62,30 +62,22 @@ class TVDetector(threading.Thread):
             print("No TV detected based on the provided class ID.")
             return frame  # No TV detected, return the original frame
 
-        # Find the largest TV detection based on bounding box area
-        if len(tv_detections)==1:
-            largest_tv, largest_tv_mask = tv_detections[0]  # Directly take the first detection (no need for max)
-        else:
-            largest_tv, largest_tv_mask = max(tv_detections, key=lambda x: (x[0].xyxy[2] - x[0].xyxy[0]) * (
-                x[0].xyxy[3] - x[0].xyxy[1]))
+        # For simplicity, let's handle the single detection case directly
+        largest_tv, largest_tv_mask = tv_detections[0]
 
         # Debugging: Check the shape of bounding box tensor
         print(f"Bounding box shape: {largest_tv.xyxy.shape}")
 
-        # Check if the bounding box is 1D or 2D and extract coordinates safely
-        if len(largest_tv.xyxy.shape) == 2 and largest_tv.xyxy.shape[0] == 1:
-            bbox_np = largest_tv.xyxy[0].cpu().numpy()  # Extract the first bounding box (if 2D with one row)
-        elif len(largest_tv.xyxy.shape) == 1 and largest_tv.xyxy.shape[0] == 4:
-            bbox_np = largest_tv.xyxy.cpu().numpy()  # Extract directly if 1D (single detection)
+        # Safely extract bounding box coordinates assuming shape (1, 4)
+        bbox_np = largest_tv.xyxy.cpu().numpy().flatten()  # Ensure the tensor is flattened
+        if len(bbox_np) == 4:
+            x1, y1, x2, y2 = map(int, bbox_np)  # Convert coordinates to integers
         else:
-            print("Bounding box tensor shape is invalid or too small:", largest_tv.xyxy.shape)
+            print(f"Invalid bounding box shape: {bbox_np.shape}")
             return frame
 
-        # Convert bounding box coordinates to integers
-        x1, y1, x2, y2 = map(int, bbox_np)
-
         # Draw bounding box on the frame (marking the detected TV)
-        # cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 100), 3)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
 
         # Process the mask to find corners (if mask is not None)
         if largest_tv_mask is not None:
@@ -100,14 +92,14 @@ class TVDetector(threading.Thread):
                 for i in range(4):
                     pt1 = tuple(map(int, corners[i]))
                     pt2 = tuple(map(int, corners[(i + 1) % 4]))
-                    cv2.line(frame, pt1, pt2, (150, 255, 0), 3)
+                    cv2.line(frame, pt1, pt2, (150, 255, 0), 4)
             else:
                 print("No valid corners found.")
         else:
             print("No mask found for the largest TV detection.")
 
         # Update self.output with the frame marked with the TV bounding box
-        # self.output = frame
+        self.output = frame
 
         return frame
 
