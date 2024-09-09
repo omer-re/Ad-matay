@@ -133,7 +133,7 @@ class LPRProcessor(threading.Thread):
 
         print("LPRProcessor stopped")
 
-    def run_lprnet(self, cropped_frame, threshold=0.1):
+    def run_lprnet(self, cropped_frame, threshold=0.9):
         if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
             print("Invalid cropped_frame passed to LPRNet. Skipping.")
             return None
@@ -163,34 +163,37 @@ class LPRProcessor(threading.Thread):
         # Mark the top-right corner
         if matches_right > threshold:
             cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 255, 0), 3)
-            cv2.putText(cropped_frame, f"AD {matches_right}", (3 * grid_w, grid_h), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(cropped_frame, f"AD {matches_right:.2f}", (3 * grid_w, grid_h), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
             print(">> RIGHT CORNER ADS")
         else:
             cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (255, 0, 0), 3)
-            cv2.putText(cropped_frame, f"Non Ad {matches_right}", (3 * grid_w, grid_h), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(cropped_frame, f"Non Ad {matches_right:.2f}", (3 * grid_w, grid_h), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
             print(">> RIGHT CORNER CONTENT")
 
         # # Mark the top-left corner
         # if matches_left > threshold:
         #     cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (0, 255, 0), 3)
-        #     cv2.putText(cropped_frame, f"AD {matches_left}", (grid_w, grid_h), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
+        #     cv2.putText(cropped_frame, f"AD {matches_left:.2f}", (grid_w, grid_h), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
         #     print(">> LEFT CORNER ADS")
         # else:
         #     print(">> LEFT CORNER CONTENT")
         #     cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (255, 0, 0), 3)
-        #     cv2.putText(cropped_frame, f"Non Ad {matches_left}", (grid_w, grid_h), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
+        #     cv2.putText(cropped_frame, f"Non Ad {matches_left:.2f}", (grid_w, grid_h), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
 
         return cropped_frame
 
     def find_best_dino_match(self, corner_features, threshold):
         best_score = 0.0
+        best_score_ref=''
         # Access the precomputed example features using self.example_features
         for filename, example_feature in self.example_features.items():
             similarity_score = cosine_similarity(corner_features, example_feature)
             if similarity_score > best_score:
                 best_score = similarity_score
+                best_score_ref=filename
             if best_score > threshold:
                 break
+        print(f'{best_score_ref=}')
         return best_score
 
     def stop(self):

@@ -24,7 +24,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 import timm
 import pickle
-
+import tqdm
 
 # Load DINO model (use ResNet50 variant for feature extraction)
 model = timm.create_model('resnet50', pretrained=True)
@@ -43,7 +43,7 @@ example_features = {}
 
 # Extract features for each example image
 with torch.no_grad():
-    for filename in os.listdir(example_folder):
+    for filename in tqdm.tqdm(os.listdir(example_folder)):
         if filename.endswith(".jpg") or filename.endswith(".png"):
             print(f'Processing {filename}')
             img_path = os.path.join(example_folder, filename)
