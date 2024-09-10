@@ -9,7 +9,7 @@ from ultralytics import YOLO
 ASPECT_RATIO = (16, 9)  # Example aspect ratio for cropping (you can modify this)
 
 class TVDetector(threading.Thread):
-    def __init__(self, input_queue, output_queue):
+    def __init__(self, input_queue, output_queue, is_adb=False):
         """
         Initializes the TV detector with the YOLO segmentation model.
         :param model: The YOLO segmentation model.
@@ -27,6 +27,7 @@ class TVDetector(threading.Thread):
         self.cropped_transformed = None  # Holds the transformed and cropped frame
         self.input=None
         self.output=None
+        self.is_adb=is_adb
 
     def detect_tv(self, frame):
         """
@@ -35,8 +36,25 @@ class TVDetector(threading.Thread):
         :param frame: The input frame from the video stream.
         :return: The frame with the largest detected TV region and its corners marked, or the original frame if no TV is found.
         """
+
+
         self.current_raw_frame = frame  # Store the raw frame
+
+        # If we're using ADB, skip the TV detection and return the input frame as the ROI frame
+        if self.is_adb:
+            h, w = frame.shape[:2]
+            self.tv_last_valid_corners = np.array([
+                [0, 0],  # Top-left corner
+                [w, 0],  # Top-right corner
+                [w, h],  # Bottom-right corner
+                [0, h]  # Bottom-left corner
+            ])
+            self.output = frame  # The frame is already the processed ROI frame
+            return frame
+
         results = self.segmentation_model(frame)  # Perform inference on the frame
+
+
 
         # Extract bounding boxes and masks from results
         boxes = results[0].boxes  # YOLOv8 bounding boxes
@@ -208,6 +226,18 @@ class TVDetector(threading.Thread):
         :param target_aspect_ratio: The aspect ratio for the cropped image.
         :return: Cropped and transformed image based on the TV's perspective.
         """
+
+        if self.is_adb:
+            # For adb input, return the current frame without any transformations
+            h, w = self.current_raw_frame.shape[:2]
+            self.tv_last_valid_corners = np.array([
+                [0, 0],  # Top-left corner
+                [w, 0],  # Top-right corner
+                [w, h],  # Bottom-right corner
+                [0, h]  # Bottom-left corner
+            ])
+            return self.current_raw_frame
+
         if self.tv_last_valid_corners is None:
             return None  # No valid corners, can't apply perspective transform
 
