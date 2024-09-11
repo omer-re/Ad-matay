@@ -65,6 +65,37 @@ class VideoFrameFetcher(threading.Thread):
             start_time = time.time()
             time.sleep(LOOP_DELAY)
 
+    def restart_video(self):
+        """Restart the video from the beginning."""
+        if self.capture:
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            print("Video restarted.")
+
+
+
+    def restart_video(self):
+        """Restart the video from the beginning."""
+        if self.capture:
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            print("Video restarted.")
+
+    def jump_forward(self, frames=20):
+        """Jump forward by the specified number of frames."""
+        if self.capture:
+            current_frame = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
+            total_frames = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            new_frame = min(current_frame + frames, total_frames - 1)  # Ensure we don't exceed total frames
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, new_frame)
+            print(f"Jumped forward to frame {new_frame}.")
+
+    def jump_backward(self, frames=20):
+        """Jump backward by the specified number of frames."""
+        if self.capture:
+            current_frame = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
+            new_frame = max(current_frame - frames, 0)  # Ensure we don't go below 0
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, new_frame)
+            print(f"Jumped backward to frame {new_frame}.")
+
     def stop(self):
         self.running = False
         self.capture.release()

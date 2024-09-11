@@ -54,7 +54,7 @@ def main():
     skip_tv_detection = False
 
     # Input source: This can be an IP, a USB camera index, or a file path.
-    input_source = '/home/hailopi/Ad-matay/video_examples/hq_tv_on.mp4'  # Example video file
+    input_source = '/home/hailopi/Ad-matay/video_examples/hq_tv_on_ads_dup.mp4'  # Example video file
 
     # Determine the source type (IP camera, USB camera, or video file)
     video_source = determine_source(input_source)
@@ -115,8 +115,23 @@ def main():
             cv2.imshow('Combined Frames', combined_frame)
 
             # Continuously call cv2.waitKey to ensure OpenCV window updates
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            key = cv2.waitKey(1) & 0xFF
+
+            # Restart the video when 'r' is pressed
+            if key  == ord('r'):
+                fetcher.restart_video()
+
+            # Continuously call cv2.waitKey to ensure OpenCV window updates
+            if key == ord('q'):
                 break  # Exit the loop when 'q' is pressed
+
+            # Jump forward by 20 frames when '>' is pressed
+            if key == ord('>'):
+                fetcher.jump_forward(20)
+
+            # Jump backward by 20 frames when '<' is pressed
+            if key == ord('<'):
+                fetcher.jump_backward(20)
 
             # Short sleep to reduce CPU load
             time.sleep(0.01)

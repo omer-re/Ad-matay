@@ -11,6 +11,13 @@ import torchvision.transforms as transforms
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from app_utils import time_measurement, add_timing_to_frame
+import easyocr
+import re
+import cv2
+
+# Initialize the EasyOCR reader globally (to avoid re-initializing each time the function is called)
+reader = easyocr.Reader(['en'], gpu=False)
+
 
 LOOP_DELAY=0.05
 # Load the DINO ResNet-50 model
@@ -25,6 +32,33 @@ preprocess = transforms.Compose([
 ])
 
 timing_info={}
+
+
+def extract_text_from_corner(top_left_corner):
+    """
+    Function to perform OCR on the top-left corner and return the detected text if it contains at least 2 digits.
+    :param top_left_corner: The image region (numpy array) containing the top-left corner.
+    :return: Detected text containing at least 2 digits, or an empty string if no such text is found.
+    """
+    # return ''
+    # Perform OCR on the corner
+    ocr_result = reader.readtext(top_left_corner)
+
+    # Initialize an empty string to store the final result
+    ocr_text = ""
+
+    if ocr_result:
+        for bbox, text, score in ocr_result:
+            # Check if the text contains at least 2 digits
+            digit_count = len(re.findall(r'\d', text))
+            if "חוזרים" in text:
+                print(text)
+            if digit_count >= 2:
+                ocr_text = text  # Store the first valid result that contains at least 2 digits
+                break  # Stop after finding the first valid result
+
+    return ocr_text  # Return the text if found, otherwise return empty string
+
 
 
 # Function to extract features from an input image using DINO ResNet-50
@@ -156,6 +190,15 @@ class LPRProcessor(threading.Thread):
             cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (255, 0, 0), 3)
             cv2.putText(cropped_frame, f"Non Ad {matches_right:.2f}", (3 * grid_w, grid_h), font, 2, (255, 255, 255), 2,
                         cv2.LINE_AA)
+            # Use the new OCR function to extract text
+            ocr_text = extract_text_from_corner(top_left_corner)
+
+            # Display OCR result on the frame if text is found
+            if ocr_text:
+                cv2.putText(cropped_frame, f"OCR: {ocr_text.strip()}", (10, grid_h + 30), font, 1, (255, 255, 255), 2,
+                            cv2.LINE_AA)
+                print(f"OCR Result for Top-Left Corner: {ocr_text.strip()}")
+
             print(">> RIGHT CORNER CONTENT")
 
         # Mark the top-left corner

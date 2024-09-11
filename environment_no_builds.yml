@@ -47,6 +47,7 @@ dependencies:
   - dill=0.3.8
   - double-conversion=3.3.0
   - expat=2.6.2
+  - easyocr
   - filelock=3.15.4
   - font-ttf-dejavu-sans-mono=2.37
   - font-ttf-inconsolata=3.000
