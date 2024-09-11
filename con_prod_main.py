@@ -52,15 +52,15 @@ def main():
     roi_queue = queue.Queue(maxsize=1)
     processed_queue = queue.Queue(maxsize=1)  # Queue for processed frames
     skip_tv_detection = False
+
     # Input source: This can be an IP, a USB camera index, or a file path.
-    # input_source = 0  # For USB camera
-    # input_source = 'http://192.168.1.195:4747/video'  # Example IP camera, change as needed
-    input_source = '/home/hailopi/Ad-matay/video_examples/hq_tv_on.mp4'  # For a video file
+    input_source = '/home/hailopi/Ad-matay/video_examples/hq_tv_on.mp4'  # Example video file
 
     # Determine the source type (IP camera, USB camera, or video file)
     video_source = determine_source(input_source)
-    if video_source=='adb':
-        skip_tv_detection=True
+    if video_source == 'adb':
+        skip_tv_detection = True
+
     # Initialize workers
     fetcher = VideoFrameFetcher(video_source, frame_queue)
     detector = TVDetector(frame_queue, roi_queue)
@@ -116,12 +116,16 @@ def main():
 
             # Continuously call cv2.waitKey to ensure OpenCV window updates
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+                break  # Exit the loop when 'q' is pressed
 
             # Short sleep to reduce CPU load
             time.sleep(0.01)
 
     except KeyboardInterrupt:
+        pass  # Handle keyboard interrupt cleanly
+
+    finally:
+        # Stop and clean up all worker threads
         fetcher.stop()
         detector.stop()
         lpr_processor.stop()
@@ -130,7 +134,8 @@ def main():
         detector.join()
         lpr_processor.join()
 
-    cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     main()
