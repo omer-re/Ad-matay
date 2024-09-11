@@ -102,7 +102,6 @@ class TVDetector(threading.Thread):
         self.output = frame
 
         return frame
-
     def detect_tv_corners(self, image, mask):
         """
         Detects the corners of the TV in the given frame using its segmentation mask.
@@ -254,14 +253,13 @@ class TVDetector(threading.Thread):
     def run(self):
         while self.running:
             try:
-                print("TVDetector: 249")
+                print("TVDetector: run()")
                 if not self.input_queue.empty():
                     frame = self.input_queue.get()
                     self.input=frame
                     print("TVDetector: Frame received from frame_queue")
 
                     roi_frame = self.detect_tv(frame)  # Detect the TV and mark it on the frame
-                    print("TVDetector: 255")
                     if roi_frame is not None and isinstance(roi_frame, np.ndarray):
                         print(f"TVDetector: Processed ROI Frame dimensions: {roi_frame.shape}")
                     else:
@@ -269,7 +267,6 @@ class TVDetector(threading.Thread):
 
                     # Optionally apply perspective transformation and cropping
                     cropped_frame = self.apply_perspective_transform_and_crop()
-                    print("TVDetector: 263")
                     # Put both the roi_frame and cropped_frame in roi_queue
                     print("TVDetector: Putting ROI Frame and Cropped Frame in roi_queue")
                     self.output=roi_frame
@@ -277,7 +274,6 @@ class TVDetector(threading.Thread):
                         print("TVDetector: 267 Queue full")
                         self.output_queue.put((roi_frame, cropped_frame))
                     else:
-                        print("TVDetector: 270")
                         self.output_queue.get()  # Remove old frame if queue is full
                         self.output_queue.put((roi_frame, cropped_frame))
                 else:

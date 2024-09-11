@@ -160,8 +160,8 @@ class LPRProcessor(threading.Thread):
 
         # Add the current state to the bottom of the frame
         state_text = f"State: {self.current_state.upper()}"
-        state_color= (0,255,0) if self.current_state.upper()=='AD' else (255,0,255)
-        cv2.putText(cropped_frame, state_text, (10, h - 20), font, 3, state_color, 5, cv2.LINE_AA)
+        state_color= (0,255,0) if self.current_state.upper()=='AD' else (0,0,255)
+        cv2.putText(cropped_frame, state_text, (w/4, h - 40), font, 3, state_color, 5, cv2.LINE_AA)
 
         return cropped_frame
     def find_best_dino_match(self, corner_features, threshold, side='right'):
