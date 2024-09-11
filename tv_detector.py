@@ -7,7 +7,7 @@ from ultralytics import YOLO
 
 #         self.segmentation_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
 ASPECT_RATIO = (16, 9)  # Example aspect ratio for cropping (you can modify this)
-
+LOOP_DELAY=0.05
 class TVDetector(threading.Thread):
     def __init__(self, input_queue, output_queue, is_adb=False):
         """
@@ -35,7 +35,7 @@ class TVDetector(threading.Thread):
         :param frame: The input frame from the video stream.
         :return: The frame with the largest detected TV region and its corners marked, or the original frame if no TV is found.
         """
-        self.current_raw_frame = frame  # Store the raw frame
+        self.current_raw_frame = frame.copy()  # Store the raw frame
         results = self.segmentation_model(frame)  # Perform inference on the frame
 
         # Extract bounding boxes and masks from results
@@ -284,7 +284,7 @@ class TVDetector(threading.Thread):
                     print("TVDetector: 274 queue is empty")
             except Exception as e:
                 print(f"Error detecting TV: {e}")
-            time.sleep(0.01)
+            time.sleep(LOOP_DELAY)
 
         print("TVDetector stopped")
 

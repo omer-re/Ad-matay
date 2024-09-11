@@ -3,7 +3,7 @@ import threading
 import queue
 import time
 
-
+LOOP_DELAY=0.05
 
 class VideoFrameFetcher(threading.Thread):
     def __init__(self, video_source, output_queue):
@@ -55,7 +55,7 @@ class VideoFrameFetcher(threading.Thread):
                 if self.last_frame is not None:
                     self.output_queue.put(self.last_frame)
 
-            time.sleep(0.01)
+            time.sleep(LOOP_DELAY)
 
     def stop(self):
         self.running = False
@@ -77,7 +77,7 @@ def main():
                 cv2.imshow('Fetched Frame', frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-            time.sleep(0.01)
+            time.sleep(LOOP_DELAY)
     except KeyboardInterrupt:
         pass
     finally:

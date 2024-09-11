@@ -10,7 +10,7 @@ from PIL import Image
 import torchvision.transforms as transforms
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
-
+LOOP_DELAY=0.05
 # Load the DINO ResNet-50 model
 model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
 model.eval()  # Set model to evaluation mode
@@ -51,6 +51,11 @@ class LPRProcessor(threading.Thread):
         self.input = None
         self.output = None
 
+        # Variables to track the result state and buffer count
+        self.buffer_count = 0
+        self.current_state = "non-ad"  # Initial state
+        self.buffer_limit = 3  # Require 5 consecutive frames to confirm state
+
         # Load the precomputed example features (new DINO features)
         with open('example_features_dino_right.pkl', 'rb') as f_right:
             self.example_features_right = pickle.load(f_right)
@@ -89,7 +94,7 @@ class LPRProcessor(threading.Thread):
             except Exception as e:
                 print(f"Error in LPR processing: {e}")
 
-            time.sleep(0.5)
+            time.sleep(LOOP_DELAY)
 
         print("LPRProcessor stopped")
 
@@ -120,6 +125,15 @@ class LPRProcessor(threading.Thread):
 
         font = cv2.FONT_HERSHEY_SIMPLEX
 
+        # Determine whether both corners are above the threshold
+        if matches_right > threshold and matches_left > threshold:
+            self.buffer_count += 1  # Increment buffer count
+            if self.buffer_count >= self.buffer_limit:
+                self.current_state = "ad"  # Update state to "ad" after 5 frames
+        else:
+            self.buffer_count = 0  # Reset buffer count if condition not met
+            self.current_state = "non-ad"  # State stays as non-ad
+
         # Mark the top-right corner
         if matches_right > threshold:
             cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 255, 0), 3)
@@ -144,13 +158,17 @@ class LPRProcessor(threading.Thread):
             cv2.putText(cropped_frame, f"Non Ad {matches_left:.2f}", (grid_w, grid_h), font, 2, (255, 255, 255), 2,
                         cv2.LINE_AA)
 
-        return cropped_frame
+        # Add the current state to the bottom of the frame
+        state_text = f"State: {self.current_state.upper()}"
+        state_color= (0,255,0) if self.current_state.upper()=='AD' else (255,0,255)
+        cv2.putText(cropped_frame, state_text, (10, h - 20), font, 3, state_color, 5, cv2.LINE_AA)
 
+        return cropped_frame
     def find_best_dino_match(self, corner_features, threshold, side='right'):
         best_score = 0.0
         best_score_ref = ''
 
-        example_features_side=self.example_features_right if side=='right' else self.example_features_left
+        example_features_side = self.example_features_right if side == 'right' else self.example_features_left
 
         # Access the precomputed example features using self.example_features_right
         for filename, example_feature in example_features_side.items():
