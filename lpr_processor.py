@@ -42,7 +42,7 @@ def cosine_similarity(feature1, feature2):
     return np.dot(feature1, feature2) / (norm(feature1) * norm(feature2))
 
 class LPRProcessor(threading.Thread):
-    def __init__(self, input_queue, output_queue=None, is_adb=False):
+    def __init__(self, input_queue, output_queue=None):
         super().__init__()
         self.input_queue = input_queue
         self.output_queue = output_queue
@@ -50,7 +50,7 @@ class LPRProcessor(threading.Thread):
         self.last_processed_frame = None
         self.input = None
         self.output = None
-        self.is_adb=is_adb
+
         # Load the precomputed example features (new DINO features)
         with open('example_features_dino.pkl', 'rb') as f:
             self.example_features = pickle.load(f)
@@ -90,60 +90,25 @@ class LPRProcessor(threading.Thread):
 
         print("LPRProcessor stopped")
 
-    def run_lprnet(self, cropped_frame, threshold=0.7):
+    def run_lprnet(self, cropped_frame, threshold=0.6):
         if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
             print("Invalid cropped_frame passed to LPRNet. Skipping.")
             return None
 
-        # When is_adb is True, we assume the TV is already the full frame
-        if self.is_adb:
-            h, w = cropped_frame.shape[:2]
-            grid_h, grid_w = h // 4, w // 4
+        # Extract features from cropped_frame (assuming DINO model is being used)
+        features = extract_features(Image.fromarray(cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2RGB)))
 
-            # Extract top-right and top-left corners
-            top_right_corner = cropped_frame[0:grid_h, 3 * grid_w:w]
-            top_left_corner = cropped_frame[0:grid_h, 0:grid_w]
+        # Perform feature matching with precomputed DINO features
+        matches = self.find_best_dino_match(features, threshold)
 
-            # Continue with feature extraction and corner matching logic
-            top_right_pil = Image.fromarray(cv2.cvtColor(top_right_corner, cv2.COLOR_BGR2RGB))
-            top_left_pil = Image.fromarray(cv2.cvtColor(top_left_corner, cv2.COLOR_BGR2RGB))
+        # Handle the result
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        if matches > threshold:
+            cv2.putText(cropped_frame, f"AD {matches:.2f}", (50, 50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        else:
+            cv2.putText(cropped_frame, f"Non-Ad {matches:.2f}", (50, 50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-            # Extract features
-            top_right_features = extract_features(top_right_pil)
-            top_left_features = extract_features(top_left_pil)
-
-            # Match features and continue the processing...
-            matches_right = self.find_best_dino_match(top_right_features, threshold)
-            matches_left = self.find_best_dino_match(top_left_features, threshold)
-
-            # Draw rectangles and add text as per the matches...
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            if matches_right > threshold:
-                cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 255, 0), 3)
-                cv2.putText(cropped_frame, f"AD {matches_right:.2f}", (3 * grid_w, grid_h), font, 1, (255, 255, 255), 1,
-                            cv2.LINE_AA)
-                print(">> RIGHT CORNER ADS")
-            else:
-                cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (255, 0, 0), 3)
-                cv2.putText(cropped_frame, f"Non Ad {matches_right:.2f}", (3 * grid_w, grid_h), font, 1,
-                            (255, 255, 255), 1, cv2.LINE_AA)
-                print(">> RIGHT CORNER CONTENT")
-
-            # Repeat for left corner...
-            if matches_left > threshold:
-                cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (0, 255, 0), 3)
-                cv2.putText(cropped_frame, f"AD {matches_left:.2f}", (grid_w, grid_h), font, 1, (255, 255, 255), 1,
-                            cv2.LINE_AA)
-                print(">> LEFT CORNER ADS")
-            else:
-                print(">> LEFT CORNER CONTENT")
-                cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (255, 0, 0), 3)
-                cv2.putText(cropped_frame, f"Non Ad {matches_left:.2f}", (grid_w, grid_h), font, 1, (255, 255, 255), 1,
-                            cv2.LINE_AA)
-
-            return cropped_frame
-
-
+        return cropped_frame
     def find_best_dino_match(self, corner_features, threshold):
         best_score = 0.0
         best_score_ref = ''

@@ -27,7 +27,6 @@ class TVDetector(threading.Thread):
         self.cropped_transformed = None  # Holds the transformed and cropped frame
         self.input=None
         self.output=None
-        self.is_adb=is_adb
 
     def detect_tv(self, frame):
         """
@@ -36,25 +35,8 @@ class TVDetector(threading.Thread):
         :param frame: The input frame from the video stream.
         :return: The frame with the largest detected TV region and its corners marked, or the original frame if no TV is found.
         """
-
-
         self.current_raw_frame = frame  # Store the raw frame
-
-        # If we're using ADB, skip the TV detection and return the input frame as the ROI frame
-        if self.is_adb:
-            h, w = frame.shape[:2]
-            self.tv_last_valid_corners = np.array([
-                [0, 0],  # Top-left corner
-                [w, 0],  # Top-right corner
-                [w, h],  # Bottom-right corner
-                [0, h]  # Bottom-left corner
-            ])
-            self.output = frame  # The frame is already the processed ROI frame
-            return frame
-
         results = self.segmentation_model(frame)  # Perform inference on the frame
-
-
 
         # Extract bounding boxes and masks from results
         boxes = results[0].boxes  # YOLOv8 bounding boxes
@@ -226,18 +208,6 @@ class TVDetector(threading.Thread):
         :param target_aspect_ratio: The aspect ratio for the cropped image.
         :return: Cropped and transformed image based on the TV's perspective.
         """
-
-        if self.is_adb:
-            # For adb input, return the current frame without any transformations
-            h, w = self.current_raw_frame.shape[:2]
-            self.tv_last_valid_corners = np.array([
-                [0, 0],  # Top-left corner
-                [w, 0],  # Top-right corner
-                [w, h],  # Bottom-right corner
-                [0, h]  # Bottom-left corner
-            ])
-            return self.current_raw_frame
-
         if self.tv_last_valid_corners is None:
             return None  # No valid corners, can't apply perspective transform
 
@@ -284,7 +254,7 @@ class TVDetector(threading.Thread):
     def run(self):
         while self.running:
             try:
-                # print("TVDetector: 249")
+                print("TVDetector: 249")
                 if not self.input_queue.empty():
                     frame = self.input_queue.get()
                     self.input=frame
@@ -311,8 +281,7 @@ class TVDetector(threading.Thread):
                         self.output_queue.get()  # Remove old frame if queue is full
                         self.output_queue.put((roi_frame, cropped_frame))
                 else:
-                    # print("TVDetector: 274 queue is empty")
-                    pass
+                    print("TVDetector: 274 queue is empty")
             except Exception as e:
                 print(f"Error detecting TV: {e}")
             time.sleep(0.01)

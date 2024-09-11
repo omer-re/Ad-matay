@@ -15,10 +15,6 @@ def determine_source(source):
         if source.startswith('http://') or source.startswith('rtsp://'):
             # IP camera stream
             return source
-
-        if source=="adb":
-            return source
-
         elif os.path.isfile(source):
             # Video file
             return source
@@ -28,17 +24,7 @@ def determine_source(source):
     else:
         raise ValueError(f"Invalid source type: {source}")
 
-def add_time_overlay(frame, time_diff):
-    """
-    Adds a time overlay to the frame showing how long since the last frame was updated.
-    :param frame: The frame to add the text to.
-    :param time_diff: The time difference in seconds.
-    :return: The frame with the time overlay.
-    """
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    text = f"Last Frame: {time_diff:.2f}s ago"
-    cv2.putText(frame, text, (10, 60), font, 3, (255, 255, 255), 2, cv2.LINE_AA)
-    return frame
+
 
 def create_black_frame(width, height):
     """
@@ -69,7 +55,6 @@ def main():
     # input_source = 0  # For USB camera
     # input_source = 'http://192.168.1.195:4747/video'  # Example IP camera, change as needed
     input_source = '/home/hailopi/Ad-matay/video_examples/hq_tv_on.mp4'  # For a video file
-    input_source = 'adb'
 
     # Determine the source type (IP camera, USB camera, or video file)
     video_source = determine_source(input_source)
@@ -119,10 +104,6 @@ def main():
             detector_output = add_title(detector_output, 'Detector Output')
             lpr_input = add_title(lpr_input, 'LPR Processor Input')
             lpr_output = add_title(lpr_output, 'LPR Processor Output')
-
-            # Add time overlay to the fetcher input
-            time_since_last_frame = fetcher.get_time_since_last_frame()
-            fetcher_input = add_time_overlay(fetcher_input, time_since_last_frame)
 
             # Combine frames into a grid (3 columns, 2 rows)
             top_row = cv2.hconcat([fetcher_input, detector_input, lpr_input])
