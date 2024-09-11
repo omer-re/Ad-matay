@@ -61,8 +61,8 @@ def main():
     if video_source=='adb':
         skip_tv_detection=True
     # Initialize workers
-    fetcher = VideoFrameFetcher(video_source, frame_queue, is_adb=skip_tv_detection)
-    detector = TVDetector(frame_queue, roi_queue, is_adb=skip_tv_detection)
+    fetcher = VideoFrameFetcher(video_source, frame_queue)
+    detector = TVDetector(frame_queue, roi_queue)
     lpr_processor = LPRProcessor(roi_queue, processed_queue)
 
     # Start workers

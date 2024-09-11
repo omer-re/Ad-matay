@@ -59,5 +59,5 @@ for filename in tqdm.tqdm(os.listdir(example_folder)):
         example_features[filename] = features
 
 # Save the features to a .pkl file
-with open('example_features_dino.pkl', 'wb') as f:
+with open('example_features_dino_right.pkl', 'wb') as f:
     pickle.dump(example_features, f)

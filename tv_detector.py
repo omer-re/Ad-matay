@@ -77,7 +77,7 @@ class TVDetector(threading.Thread):
             return frame
 
         # Draw bounding box on the frame (marking the detected TV)
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
+        # cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
 
         # Process the mask to find corners (if mask is not None)
         if largest_tv_mask is not None:

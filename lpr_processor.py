@@ -52,8 +52,11 @@ class LPRProcessor(threading.Thread):
         self.output = None
 
         # Load the precomputed example features (new DINO features)
-        with open('example_features_dino.pkl', 'rb') as f:
-            self.example_features = pickle.load(f)
+        with open('example_features_dino_right.pkl', 'rb') as f_right:
+            self.example_features_right = pickle.load(f_right)
+
+        with open('example_features_dino_left.pkl', 'rb') as f_left:
+            self.example_features_left = pickle.load(f_left)
 
         # Restore icon paths initialization
         icon_right_folder = "/home/hailopi/Ad-matay/corners/break/right"
@@ -90,30 +93,67 @@ class LPRProcessor(threading.Thread):
 
         print("LPRProcessor stopped")
 
-    def run_lprnet(self, cropped_frame, threshold=0.6):
+    def run_lprnet(self, cropped_frame, threshold=0.65):
         if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
             print("Invalid cropped_frame passed to LPRNet. Skipping.")
             return None
 
-        # Extract features from cropped_frame (assuming DINO model is being used)
-        features = extract_features(Image.fromarray(cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2RGB)))
+        # Get image dimensions and divide into 4x4 grid
+        h, w = cropped_frame.shape[:2]
+        grid_h, grid_w = h // 4, w // 4
 
-        # Perform feature matching with precomputed DINO features
-        matches = self.find_best_dino_match(features, threshold)
+        # Extract top-right and top-left corners as valid image slices
+        top_right_corner = cropped_frame[0:grid_h, 3 * grid_w:w]
+        top_left_corner = cropped_frame[0:grid_h, 0:grid_w]
 
-        # Handle the result
+        # Convert the corners to PIL images for feature extraction
+        top_right_pil = Image.fromarray(cv2.cvtColor(top_right_corner, cv2.COLOR_BGR2RGB))
+        top_left_pil = Image.fromarray(cv2.cvtColor(top_left_corner, cv2.COLOR_BGR2RGB))
+
+        # Extract features from the top-right and top-left corners
+        top_right_features = extract_features(top_right_pil)
+        top_left_features = extract_features(top_left_pil)
+
+        # Perform feature matching with precomputed example features
+        matches_right = self.find_best_dino_match(top_right_features, threshold, side='right')
+        matches_left = self.find_best_dino_match(top_left_features, threshold, side='left')
+
         font = cv2.FONT_HERSHEY_SIMPLEX
-        if matches > threshold:
-            cv2.putText(cropped_frame, f"AD {matches:.2f}", (50, 50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
+        # Mark the top-right corner
+        if matches_right > threshold:
+            cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (0, 255, 0), 3)
+            cv2.putText(cropped_frame, f"AD {matches_right:.2f}", (3 * grid_w, grid_h), font, 2, (255, 255, 255), 2,
+                        cv2.LINE_AA)
+            print(">> RIGHT CORNER ADS")
         else:
-            cv2.putText(cropped_frame, f"Non-Ad {matches:.2f}", (50, 50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (255, 0, 0), 3)
+            cv2.putText(cropped_frame, f"Non Ad {matches_right:.2f}", (3 * grid_w, grid_h), font, 2, (255, 255, 255), 2,
+                        cv2.LINE_AA)
+            print(">> RIGHT CORNER CONTENT")
+
+        # Mark the top-left corner
+        if matches_left > threshold:
+            cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (0, 255, 0), 3)
+            cv2.putText(cropped_frame, f"AD {matches_left:.2f}", (grid_w, grid_h), font, 2, (255, 255, 255), 2,
+                        cv2.LINE_AA)
+            print(">> LEFT CORNER ADS")
+        else:
+            print(">> LEFT CORNER CONTENT")
+            cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (255, 0, 0), 3)
+            cv2.putText(cropped_frame, f"Non Ad {matches_left:.2f}", (grid_w, grid_h), font, 2, (255, 255, 255), 2,
+                        cv2.LINE_AA)
 
         return cropped_frame
-    def find_best_dino_match(self, corner_features, threshold):
+
+    def find_best_dino_match(self, corner_features, threshold, side='right'):
         best_score = 0.0
         best_score_ref = ''
-        # Access the precomputed example features using self.example_features
-        for filename, example_feature in self.example_features.items():
+
+        example_features_side=self.example_features_right if side=='right' else self.example_features_left
+
+        # Access the precomputed example features using self.example_features_right
+        for filename, example_feature in example_features_side.items():
             similarity_score = cosine_similarity(corner_features, example_feature)
             if similarity_score > best_score:
                 best_score = similarity_score
