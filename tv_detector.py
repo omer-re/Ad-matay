@@ -284,7 +284,7 @@ class TVDetector(threading.Thread):
     def run(self):
         while self.running:
             try:
-                print("TVDetector: 249")
+                # print("TVDetector: 249")
                 if not self.input_queue.empty():
                     frame = self.input_queue.get()
                     self.input=frame
@@ -311,7 +311,8 @@ class TVDetector(threading.Thread):
                         self.output_queue.get()  # Remove old frame if queue is full
                         self.output_queue.put((roi_frame, cropped_frame))
                 else:
-                    print("TVDetector: 274 queue is empty")
+                    # print("TVDetector: 274 queue is empty")
+                    pass
             except Exception as e:
                 print(f"Error detecting TV: {e}")
             time.sleep(0.01)
