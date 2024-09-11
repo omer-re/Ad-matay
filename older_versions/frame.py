@@ -20,7 +20,7 @@ PINK_COLOR = (255, 105, 180)
 YELLOW_COLOR = (255, 255, 0)
 
 # Load the YOLOv8n-seg model
-model = YOLO('yolov8n-seg.pt')
+model = YOLO('../yolov8n-seg.pt')
 
 class Frame:
     cap = None

@@ -6,6 +6,7 @@ from video_frame_fetcher import VideoFrameFetcher
 from tv_detector import TVDetector
 from lpr_processor import LPRProcessor
 import os
+from app_utils import time_measurement
 
 def determine_source(source):
     """

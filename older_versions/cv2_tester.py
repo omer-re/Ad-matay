@@ -40,7 +40,7 @@ def segment_tv(image, tv_box):
 # Function to detect and refine TV corners
 def detect_and_refine_tv(image):
     # Step 1: YOLOv8 for initial detection
-    model = YOLO('yolov8n-seg.pt')
+    model = YOLO('../yolov8n-seg.pt')
     results = model(image)
     tv_box = None
 

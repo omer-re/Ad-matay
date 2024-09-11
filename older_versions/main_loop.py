@@ -29,7 +29,7 @@ LONG_INTERVAL = 10000  # Long interval for certain operations
 
 
 # Path to the video file
-VIDEO_FILE_PATH = "video_examples/tv_on_noon_ads_ch12.mp4"
+VIDEO_FILE_PATH = "../video_examples/tv_on_noon_ads_ch12.mp4"
 cap = cv2.VideoCapture(VIDEO_FILE_PATH)
 
 if not cap.isOpened():
@@ -92,8 +92,8 @@ class App:
         self.reference_descriptors = None
         self.largest_tv_mask = None
         self.largest_tv_area = None
-        self.segmentation_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
-        self.ocr_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
+        self.segmentation_model = YOLO('../yolov8n-seg.pt')  # YOLO segmentation model
+        self.ocr_model = YOLO('../yolov8n-seg.pt')  # YOLO segmentation model
         self.current_yolo_results = None
         self.scaled_corners=None
         # Variables to hold previous segmentation results

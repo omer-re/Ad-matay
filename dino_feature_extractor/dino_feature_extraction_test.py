@@ -9,7 +9,7 @@ from numpy.linalg import norm
 import matplotlib.pyplot as plt
 
 # Load the precomputed example features from the .pkl file
-with open('../example_features.pkl', 'rb') as f:
+with open('../older_versions/example_features.pkl', 'rb') as f:
     example_features = pickle.load(f)
 
 

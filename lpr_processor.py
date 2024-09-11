@@ -10,6 +10,8 @@ from PIL import Image
 import torchvision.transforms as transforms
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
+from app_utils import time_measurement, add_timing_to_frame
+
 LOOP_DELAY=0.05
 # Load the DINO ResNet-50 model
 model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
@@ -21,6 +23,8 @@ preprocess = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
+
+timing_info={}
 
 
 # Function to extract features from an input image using DINO ResNet-50
@@ -41,6 +45,7 @@ def get_image_files_from_directory(directory):
 def cosine_similarity(feature1, feature2):
     return np.dot(feature1, feature2) / (norm(feature1) * norm(feature2))
 
+
 class LPRProcessor(threading.Thread):
     def __init__(self, input_queue, output_queue=None):
         super().__init__()
@@ -50,6 +55,7 @@ class LPRProcessor(threading.Thread):
         self.last_processed_frame = None
         self.input = None
         self.output = None
+        self.timing_info={}
 
         # Variables to track the result state and buffer count
         self.buffer_count = 0
@@ -70,6 +76,8 @@ class LPRProcessor(threading.Thread):
         self.icon_left_paths = get_image_files_from_directory(icon_left_folder)
 
     def run(self):
+        execution_time=0
+        start_time=0
         while self.running:
             try:
                 if not self.input_queue.empty():
@@ -90,9 +98,13 @@ class LPRProcessor(threading.Thread):
                         if not self.output_queue.full():
                             print("LPRProcessor: Putting processed frame in processed_queue")
                             self.output_queue.put(self.last_processed_frame)
-                    self.output = self.last_processed_frame
+                    self.output = add_timing_to_frame(execution_time,self.last_processed_frame.copy())
             except Exception as e:
                 print(f"Error in LPR processing: {e}")
+            end_time = time.time()
+            execution_time = end_time - start_time  # Measure time
+            start_time = time.time()
+
 
             time.sleep(LOOP_DELAY)
 
@@ -161,7 +173,7 @@ class LPRProcessor(threading.Thread):
         # Add the current state to the bottom of the frame
         state_text = f"State: {self.current_state.upper()}"
         state_color= (0,255,0) if self.current_state.upper()=='AD' else (0,0,255)
-        cv2.putText(cropped_frame, state_text, (w/4, h - 40), font, 3, state_color, 5, cv2.LINE_AA)
+        cv2.putText(cropped_frame, state_text, (50, h - 40), font, 3, state_color, 5, cv2.LINE_AA)
 
         return cropped_frame
     def find_best_dino_match(self, corner_features, threshold, side='right'):

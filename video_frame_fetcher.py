@@ -2,6 +2,7 @@ import cv2
 import threading
 import queue
 import time
+from app_utils import add_timing_to_frame
 
 LOOP_DELAY=0.05
 
@@ -36,6 +37,8 @@ class VideoFrameFetcher(threading.Thread):
         print(f"VideoCapture resolution set to: {int(actual_width)}x{int(actual_height)}")
 
     def run(self):
+        execution_time = 0
+        start_time = 0
         while self.running:
             try:
                 ret, frame = self.capture.read()
@@ -43,7 +46,9 @@ class VideoFrameFetcher(threading.Thread):
                     raise Exception("Failed to fetch frame")
                 self.last_frame = frame
                 self.input=frame
-                self.output=frame
+                # self.output=frame
+                self.output = add_timing_to_frame(execution_time, frame.copy())
+
                 if not self.output_queue.full():
                     self.output_queue.put(frame)
                 else:
@@ -55,6 +60,9 @@ class VideoFrameFetcher(threading.Thread):
                 if self.last_frame is not None:
                     self.output_queue.put(self.last_frame)
 
+            end_time = time.time()
+            execution_time = end_time - start_time  # Measure time
+            start_time = time.time()
             time.sleep(LOOP_DELAY)
 
     def stop(self):

@@ -4,6 +4,7 @@ import threading
 import queue
 import time
 from ultralytics import YOLO
+from app_utils import time_measurement, add_timing_to_frame
 
 #         self.segmentation_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
 ASPECT_RATIO = (16, 9)  # Example aspect ratio for cropping (you can modify this)
@@ -99,7 +100,7 @@ class TVDetector(threading.Thread):
             print("No mask found for the largest TV detection.")
 
         # Update self.output with the frame marked with the TV bounding box
-        self.output = frame
+        # self.output = frame
 
         return frame
     def detect_tv_corners(self, image, mask):
@@ -251,6 +252,9 @@ class TVDetector(threading.Thread):
         return self.cropped_transformed
 
     def run(self):
+        execution_time=0
+        start_time=0
+
         while self.running:
             try:
                 print("TVDetector: run()")
@@ -269,7 +273,8 @@ class TVDetector(threading.Thread):
                     cropped_frame = self.apply_perspective_transform_and_crop()
                     # Put both the roi_frame and cropped_frame in roi_queue
                     print("TVDetector: Putting ROI Frame and Cropped Frame in roi_queue")
-                    self.output=roi_frame
+                    self.output=add_timing_to_frame(execution_time, roi_frame.copy())
+
                     if not self.output_queue.full():
                         print("TVDetector: 267 Queue full")
                         self.output_queue.put((roi_frame, cropped_frame))
@@ -280,6 +285,10 @@ class TVDetector(threading.Thread):
                     print("TVDetector: 274 queue is empty")
             except Exception as e:
                 print(f"Error detecting TV: {e}")
+
+            end_time = time.time()
+            execution_time = end_time - start_time  # Measure time
+            start_time = time.time()
             time.sleep(LOOP_DELAY)
 
         print("TVDetector stopped")
