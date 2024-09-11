@@ -7,7 +7,7 @@ from tv_detector import TVDetector
 from lpr_processor import LPRProcessor
 import os
 from app_utils import time_measurement
-
+import PIL
 def determine_source(source):
     """
     Determine the type of input source: IP camera, USB camera, or video file.
@@ -45,7 +45,7 @@ def resize_frame(frame, width, height):
     """
     Resizes the given frame to the specified width and height.
     """
-    return cv2.resize(frame, (width, height))
+    return cv2.resize(frame, (width, height), PIL.Image.Resampling.LANCZOS)
 
 def main():
     frame_queue = queue.Queue(maxsize=1)

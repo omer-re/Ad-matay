@@ -6,17 +6,14 @@ import cv2
 import torch
 import numpy as np
 import pickle
-from PIL import Image
+# from PIL import Image
 import torchvision.transforms as transforms
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from app_utils import time_measurement, add_timing_to_frame
 import easyocr
 import re
-import cv2
 
-# Initialize the EasyOCR reader globally (to avoid re-initializing each time the function is called)
-reader = easyocr.Reader(['en'], gpu=False)
 
 
 LOOP_DELAY=0.05
@@ -33,6 +30,14 @@ preprocess = transforms.Compose([
 
 timing_info={}
 
+from PIL import Image
+import PIL
+# Check the version of Pillow and use the appropriate constant for resampling
+# Use Image.LANCZOS for resizing, no need for version check
+# ANTIALIAS = Image.LANCZOS
+
+# Initialize the EasyOCR reader globally (to avoid re-initializing each time the function is called)
+reader = easyocr.Reader(['en'], gpu=False)
 
 def extract_text_from_corner(top_left_corner):
     """
@@ -40,26 +45,28 @@ def extract_text_from_corner(top_left_corner):
     :param top_left_corner: The image region (numpy array) containing the top-left corner.
     :return: Detected text containing at least 2 digits, or an empty string if no such text is found.
     """
-    # return ''
-    # Perform OCR on the corner
-    ocr_result = reader.readtext(top_left_corner)
+    try:
+        # Convert the OpenCV image (BGR) to RGB format for EasyOCR
+        top_left_corner_rgb = cv2.cvtColor(top_left_corner, cv2.COLOR_BGR2RGB)
 
-    # Initialize an empty string to store the final result
-    ocr_text = ""
+        # Perform OCR on the corner
+        ocr_result = reader.readtext(top_left_corner_rgb)
 
-    if ocr_result:
-        for bbox, text, score in ocr_result:
-            # Check if the text contains at least 2 digits
-            digit_count = len(re.findall(r'\d', text))
-            if "חוזרים" in text:
-                print(text)
-            if digit_count >= 2:
-                ocr_text = text  # Store the first valid result that contains at least 2 digits
-                break  # Stop after finding the first valid result
+        # Initialize an empty string to store the final result
+        ocr_text = ""
 
-    return ocr_text  # Return the text if found, otherwise return empty string
-
-
+        if ocr_result:
+            for bbox, text, score in ocr_result:
+                print(f'\nXX OCR {text=}\n')
+                # Check if the text contains at least 2 digits
+                digit_count = len(re.findall(r'\d', text))
+                if digit_count >= 2:
+                    ocr_text = text  # Store the first valid result that contains at least 2 digits
+                    break  # Stop after finding the first valid result
+        return ocr_text  # Return the text if found, otherwise return empty string
+    except Exception as e:
+        print(f"Error in OCR extraction: {e}")
+        return ""  # Return an empty string if an error occurs
 
 # Function to extract features from an input image using DINO ResNet-50
 def extract_features(image):
@@ -190,14 +197,6 @@ class LPRProcessor(threading.Thread):
             cv2.rectangle(cropped_frame, (3 * grid_w, 0), (w, grid_h), (255, 0, 0), 3)
             cv2.putText(cropped_frame, f"Non Ad {matches_right:.2f}", (3 * grid_w, grid_h), font, 2, (255, 255, 255), 2,
                         cv2.LINE_AA)
-            # Use the new OCR function to extract text
-            ocr_text = extract_text_from_corner(top_left_corner)
-
-            # Display OCR result on the frame if text is found
-            if ocr_text:
-                cv2.putText(cropped_frame, f"OCR: {ocr_text.strip()}", (10, grid_h + 30), font, 1, (255, 255, 255), 2,
-                            cv2.LINE_AA)
-                print(f"OCR Result for Top-Left Corner: {ocr_text.strip()}")
 
             print(">> RIGHT CORNER CONTENT")
 
@@ -212,6 +211,15 @@ class LPRProcessor(threading.Thread):
             cv2.rectangle(cropped_frame, (0, 0), (grid_w, grid_h), (255, 0, 0), 3)
             cv2.putText(cropped_frame, f"Non Ad {matches_left:.2f}", (grid_w, grid_h), font, 2, (255, 255, 255), 2,
                         cv2.LINE_AA)
+
+        # Use the new OCR function to extract text
+        ocr_text = extract_text_from_corner(top_left_corner)
+
+        # Display OCR result on the frame if text is found
+        if ocr_text:
+            cv2.putText(cropped_frame, f"OCR: {ocr_text.strip()}", (10, grid_h + 30), font, 2, (255, 255, 255), 3,
+                        cv2.LINE_AA)
+            print(f"OCR Result for Top-Left Corner: {ocr_text.strip()}")
 
         # Add the current state to the bottom of the frame
         state_text = f"State: {self.current_state.upper()}"
@@ -244,7 +252,7 @@ class LPRProcessor(threading.Thread):
 
 # Independent testing of LPRProcessor
 def main():
-    icon_right_folder = "/home/hailopi/Ad-matay/corners/break/right"
+    icon_right_folder = "/home/hailopi/Ad-matey/corners/break/right"
     icon_left_folder = "/home/hailopi/Ad-matay/corners/break/left"
 
     # Get all icon images from the left and right directories
