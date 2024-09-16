@@ -72,14 +72,7 @@ class VideoFrameFetcher(threading.Thread):
             print("Video restarted.")
 
 
-
-    def restart_video(self):
-        """Restart the video from the beginning."""
-        if self.capture:
-            self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            print("Video restarted.")
-
-    def jump_forward(self, frames=20):
+    def jump_forward(self, frames=100):
         """Jump forward by the specified number of frames."""
         if self.capture:
             current_frame = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
@@ -88,7 +81,7 @@ class VideoFrameFetcher(threading.Thread):
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, new_frame)
             print(f"Jumped forward to frame {new_frame}.")
 
-    def jump_backward(self, frames=20):
+    def jump_backward(self, frames=100):
         """Jump backward by the specified number of frames."""
         if self.capture:
             current_frame = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))

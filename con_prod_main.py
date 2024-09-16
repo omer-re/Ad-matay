@@ -127,11 +127,11 @@ def main():
 
             # Jump forward by 20 frames when '>' is pressed
             if key == ord('>'):
-                fetcher.jump_forward(20)
+                fetcher.jump_forward(100)
 
             # Jump backward by 20 frames when '<' is pressed
             if key == ord('<'):
-                fetcher.jump_backward(20)
+                fetcher.jump_backward(100)
 
             # Short sleep to reduce CPU load
             time.sleep(0.01)
