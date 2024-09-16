@@ -45,6 +45,7 @@ def extract_text_from_corner(top_left_corner):
     :param top_left_corner: The image region (numpy array) containing the top-left corner.
     :return: Detected text containing at least 2 digits, or an empty string if no such text is found.
     """
+    return ''
     try:
         # Convert the OpenCV image (BGR) to RGB format for EasyOCR
         top_left_corner_rgb = cv2.cvtColor(top_left_corner, cv2.COLOR_BGR2RGB)

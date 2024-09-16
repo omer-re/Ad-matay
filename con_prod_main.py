@@ -1,3 +1,4 @@
+
 import queue
 import time
 import cv2
@@ -5,27 +6,6 @@ import numpy as np
 from video_frame_fetcher import VideoFrameFetcher
 from tv_detector import TVDetector
 from lpr_processor import LPRProcessor
-import os
-from app_utils import time_measurement
-import PIL
-def determine_source(source):
-    """
-    Determine the type of input source: IP camera, USB camera, or video file.
-    """
-    if isinstance(source, str):
-        if source.startswith('http://') or source.startswith('rtsp://'):
-            # IP camera stream
-            return source
-        elif os.path.isfile(source):
-            # Video file
-            return source
-    elif isinstance(source, int):
-        # USB camera (0 for default camera, 1 for secondary, etc.)
-        return source
-    else:
-        raise ValueError(f"Invalid source type: {source}")
-
-
 
 def create_black_frame(width, height):
     """
@@ -38,35 +18,30 @@ def add_title(frame, title):
     Adds a title to the top of the frame.
     """
     font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(frame, title, (10, 30), font, 1, (255, 0,0), 2, cv2.LINE_AA)
+    cv2.putText(frame, title, (10, 30), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
     return frame
 
 def resize_frame(frame, width, height):
     """
     Resizes the given frame to the specified width and height.
     """
-    return cv2.resize(frame, (width, height), PIL.Image.Resampling.LANCZOS)
+    return cv2.resize(frame, (width, height))
 
 def main():
     frame_queue = queue.Queue(maxsize=1)
     roi_queue = queue.Queue(maxsize=1)
     processed_queue = queue.Queue(maxsize=1)  # Queue for processed frames
-    skip_tv_detection = False
 
     # Input source: This can be an IP, a USB camera index, or a file path.
     input_source = '/home/hailopi/Ad-matay/video_examples/hq_tv_on_ads_dup.mp4'  # Example video file
+    # input_source=0
 
-    # Determine the source type (IP camera, USB camera, or video file)
-    video_source = determine_source(input_source)
-    if video_source == 'adb':
-        skip_tv_detection = True
-
-    # Initialize workers
-    fetcher = VideoFrameFetcher(video_source, frame_queue)
+    # Initialize the workers
+    fetcher = VideoFrameFetcher(input_source, frame_queue)
     detector = TVDetector(frame_queue, roi_queue)
     lpr_processor = LPRProcessor(roi_queue, processed_queue)
 
-    # Start workers
+    # Start the workers (threads)
     fetcher.start()
     detector.start()
     lpr_processor.start()
@@ -75,7 +50,6 @@ def main():
 
     try:
         while True:
-            # Create black frames in case inputs/outputs are None
             black_frame = create_black_frame(target_width, target_height)
 
             # Fetcher frames
@@ -111,36 +85,33 @@ def main():
             bottom_row = cv2.hconcat([fetcher_output, detector_output, lpr_output])
             combined_frame = cv2.vconcat([top_row, bottom_row])
 
-            # Display the combined frame in a single window
+            # Display the combined frame
             cv2.imshow('Combined Frames', combined_frame)
 
-            # Continuously call cv2.waitKey to ensure OpenCV window updates
+            # Press 'q' to quit
             key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
 
-            # Restart the video when 'r' is pressed
-            if key  == ord('r'):
+            # Press 'r' to restart the video
+            if key == ord('r'):
                 fetcher.restart_video()
 
-            # Continuously call cv2.waitKey to ensure OpenCV window updates
-            if key == ord('q'):
-                break  # Exit the loop when 'q' is pressed
-
-            # Jump forward by 20 frames when '>' is pressed
+            # Press '>' to jump forward by 20 frames
             if key == ord('>'):
-                fetcher.jump_forward(100)
+                fetcher.jump_forward(20)
 
-            # Jump backward by 20 frames when '<' is pressed
+            # Press '<' to jump backward by 20 frames
             if key == ord('<'):
-                fetcher.jump_backward(100)
+                fetcher.jump_backward(20)
 
-            # Short sleep to reduce CPU load
-            time.sleep(0.01)
+            time.sleep(0.01)  # Reduce CPU load
 
     except KeyboardInterrupt:
-        pass  # Handle keyboard interrupt cleanly
+        pass  # Handle interrupt
 
     finally:
-        # Stop and clean up all worker threads
+        # Stop all threads and clean up
         fetcher.stop()
         detector.stop()
         lpr_processor.stop()
@@ -151,6 +122,7 @@ def main():
 
         cv2.destroyAllWindows()
 
-
 if __name__ == "__main__":
     main()
+
+
