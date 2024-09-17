@@ -28,6 +28,7 @@ For example, another app that preform parental control can use the input simulta
 - I chose using multithreading over multiprocessing as some context is shared, but converting it to multiprocessing can be relatively simple (mainly adapting the queues mechanism).
 
 Attached is an explained scheme:
+[Link to PDF for better view](https://drive.google.com/file/d/14PyFBqQjhArn8FWC8BHDP_0aOVB6A2bj/view?usp=sharing)
 <img src="https://i.imgur.com/QrApUn8.png" width="800"/>
 <img src="https://i.imgur.com/hKqWxGg.png" width="800"/>
 
