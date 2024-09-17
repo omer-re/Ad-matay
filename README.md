@@ -29,7 +29,7 @@ For example, another app that preform parental control can use the input simulta
 
 <img src="https://github.com/omer-re/Ad-matay/blob/637030a5850c258a6f2eb2b0d4387b3e9cbdd8ea/demo_images/ad_matay_scheme.png"/>
 
-### Why using a single worker per class?
+#### Why using a single worker per class?
 From the nature of the challenge I am trying to solve, there's no much value for a true real-time process.
 Sampling in a frequency of once a second (or even a once a few seconds) is sufficient for those needs.
 I am using a very small queue (N=1,2) as I couldn't justify piling up frames if I can't process them on the next module in a timely manner.
@@ -37,5 +37,26 @@ The RPI5 has its limitations, and the tv detection plus lpr are taking about 2-3
 
 Further down the roadmap I will convert it to use the Hailo kit and then I expect it to work faster, which will then derive rethinking the workers distribution.
 
+
+## Frame fetcher
+This module's responsibility is taking the input source and push frames of it into the frame_queue.
+Input sources can vary: USB camera, IP Camera, Pre-recorded video file, HDMI stream, ADB snapshots.
+The purpose is to allow the users to use whatever is easier for them to do.
+
+USB camera, IP Camera, Pre - recorded video file - are treated as "raw", and will have to be processed by the tv detector to get them "normalized" into perfect tv segmented rectangle.
+HDMI stream, ADB snapshots - are the "normalized" input, and they are (obviously) offering much easier detection due to their superior quality.
+In case of HDMI stream, ADB snapshots most of the tv_detector process will be skipped.
+
+#### Why not using the ADB snapshot as default?
+Sending snapshot commands via adb gives astonishing frames for inputs, with crisp images and even high enough frame rate.
+However, many of the content apps for android TV uses SAFE_FLAG to prevent users from taking screenshots of the content.
+The results are usually black screen with only system icons on it (volume indicator for example).
+That block makes the ADB method to be unreliable for most crowd, but a GREAT option for some (in case the app developers you're using have missed it, or if you are using a rooted android).
+
+
+## TV detector
+Given a frame from a camera which contains the TV, we'd like to detect the corners of the screen in order to normalize and transform.
+That's not that simple, as even YOLO8 segmentation models tend to miss some of the TV, even in a relatively good conditions.
+Unfortunately, the misses are usually on the top-bottom edges, where most of our data is:
 
 
