@@ -29,8 +29,8 @@ For example, another app that preform parental control can use the input simulta
 
 Attached is an explained scheme:
 [Link to PDF for better view](https://drive.google.com/file/d/14PyFBqQjhArn8FWC8BHDP_0aOVB6A2bj/view?usp=sharing)
-<img src="https://drive.google.com/file/d/15YLWEjF5C0mj7rLj5xbO5mOkQ_3AU1TX/view?usp=sharing" width="800"/>
-<img src="https://drive.google.com/file/d/15ijdTAV7nBkuQVp8Y2sLzPWurw-8wfnL/view?usp=sharing" width="800"/>
+<img src="https://i.imgur.com/DPVruKH.png" width="800"/>
+<img src="https://i.imgur.com/hKqWxGg.png" width="800"/>
 
 #### Why using a single worker per class?
 From the nature of the challenge I am trying to solve, there's no much value for a true real-time process.
