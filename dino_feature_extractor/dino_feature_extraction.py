@@ -24,6 +24,11 @@ import torchvision.transforms as transforms
 from PIL import Image
 import pickle
 
+"""
+This module creates the pkl file for the feature matching.
+You will need to run it once when modifying the items you'd like to compare to.
+"""
+
 # Load the DINO ResNet-50 model
 model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
 model.eval()  # Set model to evaluation mode
