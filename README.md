@@ -28,8 +28,8 @@ For example, another app that preform parental control can use the input simulta
 - I chose using multithreading over multiprocessing as some context is shared, but converting it to multiprocessing can be relatively simple (mainly adapting the queues mechanism).
 
 Attached is an explained scheme:
-<img src="https://github.com/omer-re/Ad-matay/blob/da7a914f9ab092dc0913a6bee07a8c83c33caf82/demo_images/ad_matay_scheme1.png" width="800"/>
-<img src="https://github.com/omer-re/Ad-matay/blob/da7a914f9ab092dc0913a6bee07a8c83c33caf82/demo_images/ad_matay_scheme2.png" width="800"/>
+<img src="https://i.imgur.com/QrApUn8.png" width="800"/>
+<img src="https://i.imgur.com/hKqWxGg.png" width="800"/>
 
 #### Why using a single worker per class?
 From the nature of the challenge I am trying to solve, there's no much value for a true real-time process.
