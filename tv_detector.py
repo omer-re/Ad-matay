@@ -18,7 +18,7 @@ class TVDetector(threading.Thread):
         :param output_queue: Queue to which the TVDetector will pass frames with ROI marked.
         """
         super().__init__()
-        self.segmentation_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
+        self.segmentation_model = YOLO('yolo_pt_models/yolov8n-seg.pt')  # YOLO segmentation model
         self.input_queue = input_queue
         self.output_queue = output_queue
         self.running = True
@@ -257,7 +257,6 @@ class TVDetector(threading.Thread):
 
         return self.cropped_transformed
 
-    @time_logger('timing_info')
     def run(self):
         execution_time=0
         start_time=0
@@ -311,7 +310,7 @@ class TVDetector(threading.Thread):
         class_name = self.__class__.__name__
         with open(file_name, 'a') as f:
             for func_name, elapsed_time in self.timing_info.items():
-                f.write(f"{class_name}:\t{func_name}:\t{elapsed_time:.2f} seconds\n")
+                f.write(f"{class_name}:\t\t{func_name}:\t{elapsed_time:.3f} seconds\n")
 
 
 # Independent testing of TVDetector

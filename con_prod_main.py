@@ -87,11 +87,11 @@ def main():
                 fetcher.restart_video()
 
 
-            # Press '>' to jump forward by 20 frames
+            # Press '>' to jump forward by frames
             if key == ord('>'):
                 fetcher.jump_forward(JUMP_SIZE)
 
-            # Press '<' to jump backward by 20 frames
+            # Press '<' to jump backward by frames
             if key == ord('<'):
                 fetcher.jump_backward(JUMP_SIZE)
 
@@ -118,6 +118,7 @@ def main():
 
         cv2.destroyAllWindows()
         # Write timing info to files
+        initialize_file('app_timings.txt')
         fetcher.write_timing_to_file('app_timings.txt')
         detector.write_timing_to_file('app_timings.txt')
         lpr_processor.write_timing_to_file('app_timings.txt')

@@ -5,7 +5,7 @@ from PIL import Image
 import numpy as np
 
 # Load the YOLOv8n-seg model
-model = YOLO('../yolov8n-seg.pt')
+model = YOLO('../yolo_pt_models/yolov8n-seg.pt')
 
 # Open the USB camera (usually device 0)
 cap = cv2.VideoCapture(0)

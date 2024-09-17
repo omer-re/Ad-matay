@@ -62,7 +62,6 @@ class VideoFrameFetcher(threading.Thread):
         #     self.capture = cv2.VideoCapture(video_source)
 
 
-    @time_logger('timing_info')
     def run(self):
         execution_time = 0
         start_time = 0
@@ -103,7 +102,7 @@ class VideoFrameFetcher(threading.Thread):
         class_name = self.__class__.__name__
         with open(file_name, 'a') as f:
             for func_name, elapsed_time in self.timing_info.items():
-                f.write(f"{class_name}:\t{func_name}:\t{elapsed_time:.2f} seconds\n")
+                f.write(f"{class_name}:\t{func_name}:\t{elapsed_time:.3f} seconds\n")
 
     def jump_forward(self, frames=100):
         """Jump forward by the specified number of frames."""

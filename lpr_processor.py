@@ -105,10 +105,10 @@ class LPRProcessor(threading.Thread):
         self.buffer_limit = 2  # Require N consecutive frames to confirm state
 
         # Load the precomputed example features (new DINO features)
-        with open('example_features_dino_right.pkl', 'rb') as f_right:
+        with open('dino_feature_extractor/example_features_dino_right.pkl', 'rb') as f_right:
             self.example_features_right = pickle.load(f_right)
 
-        with open('example_features_dino_left.pkl', 'rb') as f_left:
+        with open('dino_feature_extractor/example_features_dino_left.pkl', 'rb') as f_left:
             self.example_features_left = pickle.load(f_left)
 
         # Restore icon paths initialization
@@ -117,7 +117,6 @@ class LPRProcessor(threading.Thread):
         self.icon_right_paths = get_image_files_from_directory(icon_right_folder)
         self.icon_left_paths = get_image_files_from_directory(icon_left_folder)
 
-    @time_logger('timing_info')
     def run(self):
         execution_time=0
         start_time=0
@@ -153,6 +152,7 @@ class LPRProcessor(threading.Thread):
 
         print("LPRProcessor stopped")
 
+    @time_logger('timing_info')
     def run_lprnet(self, cropped_frame, threshold=0.65):
         if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
             print("Invalid cropped_frame passed to LPRNet. Skipping.")
@@ -257,7 +257,7 @@ class LPRProcessor(threading.Thread):
         class_name = self.__class__.__name__
         with open(file_name, 'a') as f:
             for func_name, elapsed_time in self.timing_info.items():
-                f.write(f"{class_name}:\t{func_name}:\t{elapsed_time:.2f} seconds\n")
+                f.write(f"{class_name}:\t{func_name}:\t{elapsed_time:.3f} seconds\n")
 
 
 # Independent testing of LPRProcessor

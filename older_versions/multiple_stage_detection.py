@@ -87,7 +87,7 @@ def find_extreme_corners(points):
 
 
 # Load YOLO model
-model = YOLO('../yolov8n-seg.pt')
+model = YOLO('../yolo_pt_models/yolov8n-seg.pt')
 
 # Initialize video capture
 cap = cv2.VideoCapture(0)  # 0 is usually the default USB camera

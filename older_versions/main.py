@@ -18,7 +18,7 @@ PINK_COLOR = (255, 105, 180)
 YELLOW_COLOR = (255, 255, 0)
 
 # Load the YOLOv8n-seg model
-model = YOLO('../yolov8n-seg.pt')
+model = YOLO('../yolo_pt_models/yolov8n-seg.pt')
 
 # Open the USB camera (use the correct index for your camera)
 cap = cv2.VideoCapture(CAMERA_INDEX)

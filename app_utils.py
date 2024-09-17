@@ -3,7 +3,8 @@ import cv2
 import numpy as np
 import subprocess
 from functools import wraps
-
+import datetime
+import os
 
 def time_logger(timing_dict_or_attr_name):
     """
@@ -189,3 +190,67 @@ def fetch_adb_frame():
     except Exception as e:
         print(f"ADB fetch failed: {e}")
         return None
+
+
+# Function to initialize the file with a divider and timestamp
+def initialize_file(file_name):
+    """
+    Initialize the log file by keeping only the last 5 runs and adding a new log entry.
+
+    This function will:
+    1. Check if the log file exists.
+    2. If it exists, it reads its contents and splits them into individual runs (logs).
+    3. Keeps only the last 5 logs (each log is separated by a divider).
+    4. Clears the file and writes back the last 5 logs (if any).
+    5. Adds a new log entry with a divider, timestamp, and prepares it for new logs.
+
+    Args:
+        file_name (str): The name of the log file to write.
+
+    Example of file format:
+        ========================================
+        Log created on: 17.09.24 16:00
+        ========================================
+
+        <log entries from different processors>
+
+        ========================================
+        Log created on: 17.09.24 15:00
+        ========================================
+
+        <log entries from different processors>
+
+    Notes:
+        - Each log run is separated by a divider (40 "=" characters).
+        - The function will ensure that only the last 5 logs are kept in the file.
+        - New logs are written after clearing old ones.
+    """
+    KEEPING_BUFFER=5
+    # Check if the file exists and read its contents
+    if os.path.exists(file_name):
+        with open(file_name, 'r') as f:
+            content = f.read()
+
+        # Split content by dividers (each log starts with the divider "=====")
+        logs = content.split("=" * 40)
+        logs = [log.strip() for log in logs if log.strip()]  # Remove empty sections
+
+        # Keep only the last KEEPING_BUFFER logs (if there are more than 5)
+        if len(logs) > KEEPING_BUFFER:
+            logs = logs[-KEEPING_BUFFER:]
+    else:
+        logs = []
+
+    # Clear the file and prepare to write the new content
+    with open(file_name, 'w') as f:
+        divider = "=" * 40
+        timestamp = datetime.now().strftime("%d.%m.%y %H:%M")
+
+        # Write the existing logs (if any)
+        for log in logs:
+            f.write(f"{divider}\n{log}\n{divider}\n\n")
+
+        # Write the new log header
+        f.write(f"{divider}\n")
+        f.write(f"Log created on: {timestamp}\n")
+        f.write(f"{divider}\n\n")

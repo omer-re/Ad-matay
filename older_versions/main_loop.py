@@ -92,8 +92,8 @@ class App:
         self.reference_descriptors = None
         self.largest_tv_mask = None
         self.largest_tv_area = None
-        self.segmentation_model = YOLO('../yolov8n-seg.pt')  # YOLO segmentation model
-        self.ocr_model = YOLO('../yolov8n-seg.pt')  # YOLO segmentation model
+        self.segmentation_model = YOLO('../yolo_pt_models/yolov8n-seg.pt')  # YOLO segmentation model
+        self.ocr_model = YOLO('../yolo_pt_models/yolov8n-seg.pt')  # YOLO segmentation model
         self.current_yolo_results = None
         self.scaled_corners=None
         # Variables to hold previous segmentation results
