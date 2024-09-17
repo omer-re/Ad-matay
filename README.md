@@ -27,7 +27,7 @@ For example, another app that preform parental control can use the input simulta
 - Using the queues has the by-product of "ZOH" (zero order hold), meaning that we can still hold the last valid input until new updates arrives.
 - I chose using multithreading over multiprocessing as some context is shared, but converting it to multiprocessing can be relatively simple (mainly adapting the queues mechanism).
 
-![](https://github.com/omer-re/Ad-matay/blob/637030a5850c258a6f2eb2b0d4387b3e9cbdd8ea/demo_images/ad_matay_scheme.drawio.png)
+![](https://github.com/omer-re/Ad-matay/blob/637030a5850c258a6f2eb2b0d4387b3e9cbdd8ea/demo_images/ad_matay_scheme.png)
 
 ### Why using a single worker per class?
 From the nature of the challenge I am trying to solve, there's no much value for a true real-time process.
