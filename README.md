@@ -58,5 +58,55 @@ That block makes the ADB method to be unreliable for most crowd, but a GREAT opt
 Given a frame from a camera which contains the TV, we'd like to detect the corners of the screen in order to normalize and transform.
 That's not that simple, as even YOLO8 segmentation models tend to miss some of the TV, even in a relatively good conditions.
 Unfortunately, the misses are usually on the top-bottom edges, where most of our data is:
+Using bigger YoloV8 models had the same problem, therefore I returned using nano.
+![](https://github.com/omer-re/Ad-matay/blob/b7c23c629b57d6d012ebcde93509c4b31c0a8016/demo_images/mask_tv_challenge4.png)
+
+The solution I have used is a multi-stage approach, where I use the Yolo segment but also refining it with basic CV methods of corner detection.
+Once corners are detected, we can ues perspective transform to make the side-view a straight rectangle,
+cropping the TV, passing it as an ROI, ignoring the rest.
+
+- Note: in order to prevent false detection of objects on frame (including TVs on what's shown on TV) I am picking the largest TV from all TV detections (by area).
+
+#### Multiframe approach
+Assuming enough frames, we can segment the TV by averaging frames and looking for diffs.
+Problem is that on many cases, like news for example, much of the frame is static and therefore diffs aren't shown.
+
+![](https://github.com/omer-re/Ad-matay/blob/637030a5850c258a6f2eb2b0d4387b3e9cbdd8ea/demo_images/50_frames_buffer.png)
 
 
+## LPR
+This module is built to indicate whether we are currently watching ads or not.
+It is relying on the different icons on the top corners and the timer that is usually presented, counting down back to the show.
+
+Initially I have tried to implement that model using License Plates Recognition, therefore the name.
+LPR has much in common with the need to "understand" what's the timer on the top-left corner is showing.
+I have struggled getting it to preform well and therefore it is currently commented out, meaning that the indication is just binary, whether we're on ads or not.
+
+The detection is done for each corner independently, 
+each frame's corners are compared to the collection of references I collected in advance.
+The comparison is done by feature extraction with Meta's Dino, then comparing the cosine similarity of their vectors.
+
+For some noise reduction, I designed it to toggle between Ad - Non-ad only after some N consecutive frames of the same state.
+
+
+## TV Controller
+Once we detected a commercial break, we'd like to skip it.
+We can transmit it to the TV using several ways, each simulated the remote control action in a different way:
+- IR (infra red) - good old remote control method. Recording the TV's signal once then reusing it.
+  - Pros: 99% of the TVs has IR receiver.
+  - Cons: Requires another HW (even if cheap). Requires setting it up for each specific TV model.
+- ADB command - simulating press is a basic adb command that can be used.
+  - Pros: such commands are easy to use and are usually standard.
+  - Cons: Requires being on the same local network as the TV.
+- Bluetooth - Given that many remote controllers are a BT device, we can mimic their actions.
+  - Pros: Very standard protocol allows easy setup.
+  - Cons: Requires pairing it like a new remote.
+- Virtual keyboard - This way is simulating having a keyboard connected to the TV's USB, then relying on the standard protocols to pass "fast forward" button.
+  - Pros: Robust way to communicate, should be a plug&play thing.
+  - Cons: Requires direct USB connection from the RPI to the TV, which might limit us, especially if using a usb camera which also requires considering were to place the camera and RPI.
+
+
+# Setup
+Please refer to `set_up` dir and create your virtual env. I'd rather use conda, but a venv should do as well.
+I have added the packages (`apt instal...`) list of my device as well, as I ran into some errors while creating it.
+If your env isn't working, consider installing my packages as well.
