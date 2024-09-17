@@ -2,8 +2,7 @@ import cv2
 import threading
 import queue
 import time
-import subprocess
-from app_utils import add_timing_to_frame
+from app_utils import *
 
 LOOP_DELAY=0.05
 
@@ -25,6 +24,7 @@ class VideoFrameFetcher(threading.Thread):
         self.last_frame = None
         self.input=None
         self.output=None
+        self.timing_info={}
         # Set resolution to the maximum supported by the camera (1080p example)
         max_width = 1280  # Set to 1920 for Full HD (1080p)
         max_height = 720  # Set to 1080 for Full HD (1080p)
@@ -62,6 +62,7 @@ class VideoFrameFetcher(threading.Thread):
         #     self.capture = cv2.VideoCapture(video_source)
 
 
+    @time_logger('timing_info')
     def run(self):
         execution_time = 0
         start_time = 0
@@ -97,6 +98,12 @@ class VideoFrameFetcher(threading.Thread):
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
             print("Video restarted.")
 
+    def write_timing_to_file(self, file_name):
+        """Write the timing information to a file with the class name."""
+        class_name = self.__class__.__name__
+        with open(file_name, 'a') as f:
+            for func_name, elapsed_time in self.timing_info.items():
+                f.write(f"{class_name}:\t{func_name}:\t{elapsed_time:.2f} seconds\n")
 
     def jump_forward(self, frames=100):
         """Jump forward by the specified number of frames."""
@@ -118,49 +125,6 @@ class VideoFrameFetcher(threading.Thread):
     def stop(self):
         self.running = False
         self.capture.release()
-
-    def fetch_adb_frame(self):
-        """
-                ADB attributes, currently disabled.
-
-        Fetch a single frame from an Android device using adb exec-out screencap command.
-        """
-        try:
-            # Run the adb command to fetch a screenshot
-            adb_command = ['adb', 'exec-out', 'screencap', '-p']
-            adb_process = subprocess.Popen(adb_command, stdout=subprocess.PIPE)
-
-            # Read the raw image data
-            raw_image_data = adb_process.stdout.read()
-
-            # Convert the raw image data to a numpy array
-            image_array = np.frombuffer(raw_image_data, dtype=np.uint8)
-
-            # Decode the image to OpenCV format
-            image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-
-            return image
-        except Exception as e:
-            print(f"ADB fetch failed: {e}")
-            return None
-
-
-    def connect_adb_to_device(self, ip, port):
-        """
-                ADB attributes, currently disabled.
-
-        Connect to an Android device over TCP/IP.
-        :param ip: IP address of the Android device
-        :param port: Port number for ADB connection (usually 5555)
-        """
-        try:
-            adb_connect_command = ['adb', 'connect', f'{ip}:{port}']
-            subprocess.run(adb_connect_command, check=True)
-            print(f"Connected to device at {ip}:{port} over ADB.")
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to connect to device at {ip}:{port} over ADB: {e}")
-            raise
-
 
 
 # Independent testing of VideoFrameFetcher

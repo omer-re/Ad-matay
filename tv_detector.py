@@ -4,7 +4,7 @@ import threading
 import queue
 import time
 from ultralytics import YOLO
-from app_utils import time_measurement, add_timing_to_frame
+from app_utils import *
 
 #         self.segmentation_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
 ASPECT_RATIO = (16, 9)  # Example aspect ratio for cropping (you can modify this)
@@ -28,7 +28,10 @@ class TVDetector(threading.Thread):
         self.cropped_transformed = None  # Holds the transformed and cropped frame
         self.input=None
         self.output=None
+        self.timing_info = {}
 
+
+    @time_logger('timing_info')
     def detect_tv(self, frame):
         """
         Uses YOLOv8 segmentation model to detect the TV in the frame and mark the largest one as the ROI.
@@ -103,6 +106,8 @@ class TVDetector(threading.Thread):
         # self.output = frame
 
         return frame
+
+    @time_logger('timing_info')
     def detect_tv_corners(self, image, mask):
         """
         Detects the corners of the TV in the given frame using its segmentation mask.
@@ -202,6 +207,7 @@ class TVDetector(threading.Thread):
 
         return None, largest_contour, refined_mask, largest_contour_area
 
+    @time_logger('timing_info')
     def apply_perspective_transform_and_crop(self, target_aspect_ratio=ASPECT_RATIO):
         """
         Apply perspective transform to the detected TV corners and crop the image.
@@ -251,6 +257,7 @@ class TVDetector(threading.Thread):
 
         return self.cropped_transformed
 
+    @time_logger('timing_info')
     def run(self):
         execution_time=0
         start_time=0
@@ -299,6 +306,12 @@ class TVDetector(threading.Thread):
         """
         self.running = False
 
+    def write_timing_to_file(self, file_name):
+        """Write the timing information to a file with the class name."""
+        class_name = self.__class__.__name__
+        with open(file_name, 'a') as f:
+            for func_name, elapsed_time in self.timing_info.items():
+                f.write(f"{class_name}:\t{func_name}:\t{elapsed_time:.2f} seconds\n")
 
 
 # Independent testing of TVDetector

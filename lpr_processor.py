@@ -10,7 +10,7 @@ import pickle
 import torchvision.transforms as transforms
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
-from app_utils import time_measurement, add_timing_to_frame
+from app_utils import *
 import easyocr
 import re
 
@@ -117,6 +117,7 @@ class LPRProcessor(threading.Thread):
         self.icon_right_paths = get_image_files_from_directory(icon_right_folder)
         self.icon_left_paths = get_image_files_from_directory(icon_left_folder)
 
+    @time_logger('timing_info')
     def run(self):
         execution_time=0
         start_time=0
@@ -228,6 +229,8 @@ class LPRProcessor(threading.Thread):
         cv2.putText(cropped_frame, state_text, (50, h - 40), font, 3, state_color, 5, cv2.LINE_AA)
 
         return cropped_frame
+
+    @time_logger('timing_info')
     def find_best_dino_match(self, corner_features, threshold, side='right'):
         best_score = 0.0
         best_score_ref = ''
@@ -249,6 +252,12 @@ class LPRProcessor(threading.Thread):
         self.running = False
         cv2.destroyAllWindows()
 
+    def write_timing_to_file(self, file_name):
+        """Write the timing information to a file with the class name."""
+        class_name = self.__class__.__name__
+        with open(file_name, 'a') as f:
+            for func_name, elapsed_time in self.timing_info.items():
+                f.write(f"{class_name}:\t{func_name}:\t{elapsed_time:.2f} seconds\n")
 
 
 # Independent testing of LPRProcessor

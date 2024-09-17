@@ -2,30 +2,14 @@
 import queue
 import time
 import cv2
-import numpy as np
 from video_frame_fetcher import VideoFrameFetcher
 from tv_detector import TVDetector
 from lpr_processor import LPRProcessor
+from app_utils import *
 
-def create_black_frame(width, height):
-    """
-    Creates a blank (black) frame with the given width and height.
-    """
-    return np.zeros((height, width, 3), dtype=np.uint8)
+MIN_LOOP_DELAY=0.01
+JUMP_SIZE=100
 
-def add_title(frame, title):
-    """
-    Adds a title to the top of the frame.
-    """
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(frame, title, (10, 30), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
-    return frame
-
-def resize_frame(frame, width, height):
-    """
-    Resizes the given frame to the specified width and height.
-    """
-    return cv2.resize(frame, (width, height))
 
 def main():
     frame_queue = queue.Queue(maxsize=1)
@@ -46,7 +30,12 @@ def main():
     detector.start()
     lpr_processor.start()
 
-    target_width, target_height = 640, 480  # Set the standard size for all frames
+    """
+    The testing GUI allows sampling frames from the modules directly,
+    it uses frames' copies inorder to not mess up the original frames while propagating,
+    and it doesn't observe the queues. 
+    """
+    target_width, target_height = 640, 480  # Set the standard size for all frames for the testing GUI window only
 
     try:
         while True:
@@ -86,7 +75,7 @@ def main():
             combined_frame = cv2.vconcat([top_row, bottom_row])
 
             # Display the combined frame
-            cv2.imshow('Combined Frames', combined_frame)
+            cv2.imshow('Testing GUI', combined_frame)
 
             # Press 'q' to quit
             key = cv2.waitKey(1) & 0xFF
@@ -97,21 +86,28 @@ def main():
             if key == ord('r'):
                 fetcher.restart_video()
 
+
             # Press '>' to jump forward by 20 frames
             if key == ord('>'):
-                fetcher.jump_forward(20)
+                fetcher.jump_forward(JUMP_SIZE)
 
             # Press '<' to jump backward by 20 frames
             if key == ord('<'):
-                fetcher.jump_backward(20)
+                fetcher.jump_backward(JUMP_SIZE)
 
-            time.sleep(0.01)  # Reduce CPU load
+            time.sleep(MIN_LOOP_DELAY)  # Reduce CPU load
 
     except KeyboardInterrupt:
         pass  # Handle interrupt
 
     finally:
         # Stop all threads and clean up
+        """
+        the `finally` block here because it provides more control and guarantees that 
+        the cleanup operations will be executed even if exceptions occur. 
+        This is especially important in multithreaded applications like this one, 
+        where thread termination and resource cleanup need to be handled predictably.
+        """
         fetcher.stop()
         detector.stop()
         lpr_processor.stop()
@@ -121,6 +117,10 @@ def main():
         lpr_processor.join()
 
         cv2.destroyAllWindows()
+        # Write timing info to files
+        fetcher.write_timing_to_file('app_timings.txt')
+        detector.write_timing_to_file('app_timings.txt')
+        lpr_processor.write_timing_to_file('app_timings.txt')
 
 if __name__ == "__main__":
     main()
