@@ -2,6 +2,7 @@ import cv2
 import threading
 import queue
 import time
+import subprocess
 from app_utils import add_timing_to_frame
 
 LOOP_DELAY=0.05
@@ -35,6 +36,31 @@ class VideoFrameFetcher(threading.Thread):
         actual_width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
         actual_height = self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
         print(f"VideoCapture resolution set to: {int(actual_width)}x{int(actual_height)}")
+
+
+        """
+        ADB attributes, currently disabled.
+        If we're on adb mode we need to "pair" and propagate the adb flag in order to skip tv_detector expensive steps.
+        """
+        # self.is_adb = is_adb
+        # self.adb_ip = adb_ip  # if adb_ip else "192.168.1.242"
+        # self.adb_port = adb_port  # if adb_port else "5555"
+        # if isinstance(self.video_source, str):
+        #
+        #     if self.video_source.endswith('.mp4'):
+        #         print("Using FFMPEG backend for MP4 file")
+        #         self.capture = cv2.VideoCapture(video_source, cv2.CAP_FFMPEG)
+        #     elif self.video_source == "adb" and adb_ip is not None:
+        #         print("Using ADB to fetch frames.")
+        #         if self.adb_ip:
+        #             self.connect_adb_to_device(self.adb_ip, self.adb_port)
+        #     else:
+        #         print("Using default backend")
+        #         self.capture = cv2.VideoCapture(video_source, cv2.CAP_V4L2)
+        # else:
+        #     print("Using default USB camera")
+        #     self.capture = cv2.VideoCapture(video_source)
+
 
     def run(self):
         execution_time = 0
@@ -92,6 +118,49 @@ class VideoFrameFetcher(threading.Thread):
     def stop(self):
         self.running = False
         self.capture.release()
+
+    def fetch_adb_frame(self):
+        """
+                ADB attributes, currently disabled.
+
+        Fetch a single frame from an Android device using adb exec-out screencap command.
+        """
+        try:
+            # Run the adb command to fetch a screenshot
+            adb_command = ['adb', 'exec-out', 'screencap', '-p']
+            adb_process = subprocess.Popen(adb_command, stdout=subprocess.PIPE)
+
+            # Read the raw image data
+            raw_image_data = adb_process.stdout.read()
+
+            # Convert the raw image data to a numpy array
+            image_array = np.frombuffer(raw_image_data, dtype=np.uint8)
+
+            # Decode the image to OpenCV format
+            image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+            return image
+        except Exception as e:
+            print(f"ADB fetch failed: {e}")
+            return None
+
+
+    def connect_adb_to_device(self, ip, port):
+        """
+                ADB attributes, currently disabled.
+
+        Connect to an Android device over TCP/IP.
+        :param ip: IP address of the Android device
+        :param port: Port number for ADB connection (usually 5555)
+        """
+        try:
+            adb_connect_command = ['adb', 'connect', f'{ip}:{port}']
+            subprocess.run(adb_connect_command, check=True)
+            print(f"Connected to device at {ip}:{port} over ADB.")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to connect to device at {ip}:{port} over ADB: {e}")
+            raise
+
 
 
 # Independent testing of VideoFrameFetcher
