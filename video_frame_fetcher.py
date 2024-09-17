@@ -72,7 +72,6 @@ class VideoFrameFetcher(threading.Thread):
                     raise Exception("Failed to fetch frame")
                 self.last_frame = frame
                 self.input=frame
-                # self.output=frame
                 self.output = add_timing_to_frame(execution_time, frame.copy())
 
                 if not self.output_queue.full():
