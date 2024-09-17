@@ -101,8 +101,8 @@ class LPRProcessor(threading.Thread):
 
         # Variables to track the result state and buffer count
         self.buffer_count = 0
-        self.current_state = "non-ad"  # Initial state
-        self.buffer_limit = 3  # Require 5 consecutive frames to confirm state
+        self.current_state = "Loading..."  # Initial state
+        self.buffer_limit = 2  # Require N consecutive frames to confirm state
 
         # Load the precomputed example features (new DINO features)
         with open('example_features_dino_right.pkl', 'rb') as f_right:
