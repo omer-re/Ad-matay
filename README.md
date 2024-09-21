@@ -23,7 +23,7 @@ I am a true believer in the ability to innovate using existing building blocks.
 Modern developer's ability to use existing pieces of code and methods, connecting them together in a never-seen-before way to create value.
 I find it fascinating when I run into such plug&play, well built, well explained repo, and therefore I tried to be one.
 
-This can be generalized to a template for "vision triggered apps":
+**This can be generalized to a template for "vision triggered apps":**
 1. Frames are captured from various sources.
 2. Enhancing, normalizing frames using CV techniques or algebraic transformations.
 3. Feeding frames into first stage which uses fast methods (like YOLO, CV techniques) for initial detection and reducing frames to ROI. 
@@ -36,6 +36,8 @@ This time it is skipping ads, but it could be easily converted for detecting bus
 
 ## TLDR & Block diagram
 
+## Design
+
 The app is designed to be highly modular, and each class was built to allow easy integration for components.
 I have used *consumer-producer* design pattern, stages have easy communication between them using input and output cyclic queues.
 
@@ -47,6 +49,8 @@ For example, another app that preform parental control can use the input simulta
 That is obviously a context related tradeoff I made, while other needs might require 0 frame drops which derives different solutions.
 - It allows using parallelism relatively easy as there's no need for many shared resources.
 - Using the queues has the by-product of "ZOH" (zero order hold), meaning that we can still hold the last valid input until new updates arrives.
+
+## High-level block diagram 
 
 Attached is an explained scheme:
 [Link to PDF for better view](https://drive.google.com/file/d/14PyFBqQjhArn8FWC8BHDP_0aOVB6A2bj/view?usp=sharing)
@@ -141,16 +145,16 @@ For some noise reduction, I designed it to toggle between Ad - Non-ad only after
 ## TV Controller
 Once we detected a commercial break, we'd like to skip it.
 We can transmit it to the TV using several ways, each simulated the remote control action in a different way:
-- IR (infra red) - good old remote control method. Recording the TV's signal once then reusing it.
+- **IR (infra-red) -** good old remote control method. Recording the TV's signal once then reusing it.
   - Pros: 99% of the TVs has IR receiver.
   - Cons: Requires another HW (even if cheap). Requires setting it up for each specific TV model.
-- ADB command - simulating press is a basic adb command that can be used.
+- **ADB command -** simulating press is a basic adb command that can be used.
   - Pros: such commands are easy to use and are usually standard.
   - Cons: Requires being on the same local network as the TV.
-- Bluetooth - Given that many remote controllers are a BT device, we can mimic their actions.
+- **Bluetooth -** Given that many remote controllers are a BT device, we can mimic their actions.
   - Pros: Very standard protocol allows easy setup.
   - Cons: Requires pairing it like a new remote.
-- Virtual keyboard - This way is simulating having a keyboard connected to the TV's USB, then relying on the standard protocols to pass "fast forward" button.
+- **Virtual keyboard -** This way is simulating having a keyboard connected to the TV's USB, then relying on the standard protocols to pass "fast forward" button.
   - Pros: Robust way to communicate, should be a plug&play thing.
   - Cons: Requires direct USB connection from the RPI to the TV, which might limit us, especially if using a usb camera which also requires considering were to place the camera and RPI.
 
