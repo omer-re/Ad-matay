@@ -195,3 +195,9 @@ We can transmit it to the TV using several ways, each simulated the remote contr
   - Cons: Requires direct USB connection from the RPI to the TV, which might limit us, especially if using a usb camera which also requires considering were to place the camera and RPI.
 
 
+## Future Features
+
+ - Improving timings using faster CV elements and simplified OCR (techniques like KNN might offer interesting approach).
+ - Enabling OCR of the top-left corner in relevant timing (<2 secs/frame).
+ - Finding a way to bypass adb SAFE_FLAG to be able to get input using adb. Accessibility features of android or some privileged android app might resolve it.
+ - Refactoring stages to use Hailo's LPR demo, harnessing the RPI's AI Hat's abilities. 
