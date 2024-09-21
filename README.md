@@ -35,6 +35,7 @@ It includes a testing GUI to examine the process that is also presenting the sta
      - [Multiframe approach](#multiframe-approach)
    - [LPR](#lpr)
    - [TV Controller](#tv-controller)
+6. [Future Features](#future-features)
    
 
 # Key concepts
