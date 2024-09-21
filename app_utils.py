@@ -244,7 +244,7 @@ def initialize_file(file_name):
     # Clear the file and prepare to write the new content
     with open(file_name, 'w') as f:
         divider = "=" * 40
-        timestamp = datetime.now().strftime("%d.%m.%y %H:%M")
+        timestamp = datetime.datetime.now().strftime("%d.%m.%y %H:%M")
 
         # Write the existing logs (if any)
         for log in logs:
@@ -254,3 +254,36 @@ def initialize_file(file_name):
         f.write(f"{divider}\n")
         f.write(f"Log created on: {timestamp}\n")
         f.write(f"{divider}\n\n")
+
+
+def print_last_log_entry(file_name):
+    """
+    Print the last log entry from the log file.
+
+    This function will:
+    1. Read the log file contents.
+    2. Identify and print only the last log entry based on the divider.
+
+    Args:
+        file_name (str): The name of the log file to read.
+    """
+    if not os.path.exists(file_name):
+        print(f"No log file found: {file_name}")
+        return
+
+    with open(file_name, 'r') as f:
+        content = f.read()
+
+    # Split content by dividers and get the last log entry
+    logs = content.split("=" * 40)
+    logs = [log.strip() for log in logs if log.strip()]  # Remove empty sections
+
+    if logs:
+        last_log = logs[-1]  # Get the last log entry
+        print("*" * 40)
+        print("Last Log Entry:\n")
+        print("=" * 40)
+        print(last_log)
+        print("=" * 40)
+    else:
+        print("No log entries found in the file.")

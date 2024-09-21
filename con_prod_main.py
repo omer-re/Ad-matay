@@ -9,7 +9,7 @@ from app_utils import *
 
 MIN_LOOP_DELAY=0.01
 JUMP_SIZE=100
-
+APP_TIMING_LOG_FILE='app_timings.txt'
 
 def main():
     frame_queue = queue.Queue(maxsize=1)
@@ -118,10 +118,12 @@ def main():
 
         cv2.destroyAllWindows()
         # Write timing info to files
-        initialize_file('app_timings.txt')
-        fetcher.write_timing_to_file('app_timings.txt')
-        detector.write_timing_to_file('app_timings.txt')
-        lpr_processor.write_timing_to_file('app_timings.txt')
+        initialize_file(APP_TIMING_LOG_FILE)
+        fetcher.write_timing_to_file(APP_TIMING_LOG_FILE)
+        detector.write_timing_to_file(APP_TIMING_LOG_FILE)
+        lpr_processor.write_timing_to_file(APP_TIMING_LOG_FILE)
+
+        print_last_log_entry(APP_TIMING_LOG_FILE)
 
 if __name__ == "__main__":
     main()
