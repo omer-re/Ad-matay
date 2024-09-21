@@ -116,73 +116,82 @@ class TVDetector(threading.Thread):
     def detect_tv_corners(self, image, mask):
         """
         Detects the corners of the TV in the given frame using its segmentation mask.
-        If a quadrilateral is found, it returns the 4 corners. Otherwise, it tries to find line intersections.
-        :param image: The input frame.
-        :param mask: The segmentation mask for the TV.
-        :return: Corners of the detected TV, contour, refined mask, and contour area.
+        The method uses a series of image processing steps to identify the TV's bounding polygon
+        and refine it to ensure the detected shape aligns with the known properties of a TV,
+        such as parallel lines and rectangular form.
+
+        Pipeline:
+        1. **Mask Preprocessing:**
+           - Converts the mask to an 8-bit format for OpenCV operations.
+           - Resizes the mask to match the input image dimensions if necessary.
+           - Applies morphological operations to clean and refine the mask, making contours more distinct.
+
+        2. **Contour Detection:**
+           - Finds all external contours in the refined mask.
+           - Selects the largest contour, assuming it corresponds to the TV screen.
+
+        3. **Polygon Approximation:**
+           - Approximates the largest contour to a polygon.
+           - If the polygon has 4 vertices, it is considered as the TV's bounding quadrilateral and returned directly.
+
+        4. **Line Detection and Intersection (Fallback):**
+           - If the contour approximation does not yield a quadrilateral, the method uses a line detection approach.
+           - Detects edges in the region of interest (ROI) using the Canny edge detector.
+           - Applies the Hough Line Transform to detect straight lines in the ROI.
+           - Finds intersections of the detected lines to generate candidate corner points.
+
+        5. **Corner Refinement:**
+           - If sufficient candidate corners are found, the method identifies the four extreme points to form the largest quadrilateral.
+           - This refined bounding box is returned as the TV's detected corners.
+
+        Return Values:
+        - `corners`: The four corners of the detected TV screen as a numpy array.
+        - `largest_contour`: The largest contour detected in the refined mask.
+        - `refined_mask`: The processed mask used for contour detection.
+        - `largest_contour_area`: The area of the largest detected contour.
+
+        If no valid corners are found, the method returns `None` for the corners, along with the other relevant information.
+
+        :param image: The input frame (numpy.ndarray).
+        :param mask: The segmentation mask for the TV (numpy.ndarray).
+        :return: A tuple containing:
+                 - `corners`: (numpy.ndarray) The four corners of the TV screen or `None` if not found.
+                 - `largest_contour`: (numpy.ndarray) The largest contour detected in the mask.
+                 - `refined_mask`: (numpy.ndarray) The refined segmentation mask.
+                 - `largest_contour_area`: (float) The area of the largest contour detected.
         """
+        def preprocess_mask(mask, image_size):
+            """Convert mask to 8-bit, resize, and apply morphological operations."""
+            mask = cv2.convertScaleAbs(mask)  # Convert mask to 8-bit (uint8)
+            if mask.shape[:2] != image_size:
+                print(f"Resizing mask from {mask.shape[:2]} to {image_size}")
+                mask = cv2.resize(mask, (image_size[1], image_size[0]))  # Resize mask to match image size
+            kernel = np.ones((5, 5), np.uint8)
+            refined_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+            return refined_mask
 
-        def line_intersection(line1, line2):
-            # Compute the intersection of two lines
-            x1, y1 = line1[0]
-            x2, y2 = line1[1]
-            x3, y3 = line2[0]
-            x4, y4 = line2[1]
+        def find_largest_contour(mask):
+            """Find the largest contour in the refined mask."""
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
+                return None, 0
+            largest_contour = max(contours, key=cv2.contourArea)
+            return largest_contour, cv2.contourArea(largest_contour)
 
-            denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
-            if denom == 0:
-                return None
+        def approximate_polygon(contour):
+            """Approximate the contour to a polygon."""
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            return cv2.approxPolyDP(contour, epsilon, True)
 
-            px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / denom
-            py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / denom
+        def detect_lines_and_intersections(roi):
+            """Detect lines using Hough Transform and find their intersections."""
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            edges = cv2.Canny(gray, 50, 150)
+            lines = cv2.HoughLines(edges, 1, np.pi / 180, 100)
 
-            return int(px), int(py)
+            if lines is None:
+                return []
 
-        def find_extreme_corners(points):
-            # Find the 4 corners that form the largest quadrilateral
-            hull = cv2.convexHull(np.array(points))
-            return cv2.approxPolyDP(hull, 0.1 * cv2.arcLength(hull, True), True)
-
-        # Ensure mask is converted to 8-bit format for OpenCV operations
-        mask = cv2.convertScaleAbs(mask)  # Converts mask to 8-bit (uint8)
-
-        # Ensure the mask is the same size as the input image
-        if mask.shape[:2] != image.shape[:2]:
-            print(f"Resizing mask from {mask.shape[:2]} to {image.shape[:2]}")
-            mask = cv2.resize(mask, (image.shape[1], image.shape[0]))  # Resize mask to match image size
-
-        # Apply morphological operations to refine the mask
-        kernel = np.ones((5, 5), np.uint8)
-        refined_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-
-        # Find contours in the refined mask
-        contours, _ = cv2.findContours(refined_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        if not contours:
-            return None, None, None, 0
-
-        # Find the largest contour (assumed to be the TV)
-        largest_contour = max(contours, key=cv2.contourArea)
-        largest_contour_area = cv2.contourArea(largest_contour)
-
-        # Approximate the contour to a polygon
-        epsilon = 0.02 * cv2.arcLength(largest_contour, True)
-        approx = cv2.approxPolyDP(largest_contour, epsilon, True)
-
-        # If we have a quadrilateral, return its corners, contours, mask, and area
-        if len(approx) == 4:
-            corners = approx.reshape(-1, 2)
-            return corners, largest_contour, refined_mask, largest_contour_area
-
-        # If not, use edge detection and line fitting
-        roi = cv2.bitwise_and(image, image, mask=refined_mask)
-        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, 50, 150)
-
-        # Detect lines using Hough Line Transform
-        lines = cv2.HoughLines(edges, 1, np.pi / 180, 100)
-
-        if lines is not None:
             # Extract the endpoints of the lines
             endpoints = []
             for line in lines:
@@ -198,17 +207,61 @@ class TVDetector(threading.Thread):
                 endpoints.append(((x1, y1), (x2, y2)))
 
             # Find intersections of lines
-            corners = []
+            intersections = []
             for i in range(len(endpoints)):
                 for j in range(i + 1, len(endpoints)):
                     pt = line_intersection(endpoints[i], endpoints[j])
                     if pt is not None:
-                        corners.append(pt)
+                        intersections.append(pt)
 
-            # If we have at least 4 corners, return the 4 most extreme ones
-            if len(corners) >= 4:
-                corners = np.array(find_extreme_corners(corners))
-                return corners, largest_contour, refined_mask, largest_contour_area
+            return intersections
+
+        def line_intersection(line1, line2):
+            """Compute the intersection of two lines."""
+            x1, y1 = line1[0]
+            x2, y2 = line1[1]
+            x3, y3 = line2[0]
+            x4, y4 = line2[1]
+
+            denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+            if denom == 0:
+                return None
+
+            px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / denom
+            py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / denom
+
+            return int(px), int(py)
+
+        def find_extreme_corners(points):
+            """Find the 4 corners that form the largest quadrilateral."""
+            hull = cv2.convexHull(np.array(points))
+            return cv2.approxPolyDP(hull, 0.1 * cv2.arcLength(hull, True), True)
+
+        # Step 1: Preprocess the mask
+        refined_mask = preprocess_mask(mask, image.shape[:2])
+
+        # Step 2: Find the largest contour
+        largest_contour, largest_contour_area = find_largest_contour(refined_mask)
+        if largest_contour is None:
+            return None, None, None, 0
+
+        # Step 3: Approximate the contour to a polygon
+        approx = approximate_polygon(largest_contour)
+        if len(approx) == 4:
+            corners = approx.reshape(-1, 2)
+            return corners, largest_contour, refined_mask, largest_contour_area
+
+        # Step 4: If not a quadrilateral, detect lines and find intersections
+        roi = cv2.bitwise_and(image, image, mask=refined_mask)
+        intersections = detect_lines_and_intersections(roi)
+
+        # Step 5: If we have at least 4 corners, return the 4 most extreme ones
+        if len(intersections) >= 4:
+            corners = np.array(find_extreme_corners(intersections))
+            return corners, largest_contour, refined_mask, largest_contour_area
+
+        # Step 6: use prior knowledge of the TV frame being rectangular to enforce parallel lines
+        #TODO: enforce minimal bounding polygon to have parallel lines
 
         return None, largest_contour, refined_mask, largest_contour_area
 

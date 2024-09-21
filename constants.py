@@ -1,23 +1,35 @@
 """
-Constants and paths are concentrated here to allow easy configuration for the user
+Constants and Configuration File
 
+This file contains all the constant values and file paths used throughout the application.
+Centralizing these constants allows for easy configuration and maintenance. Modify the values
+as needed to adapt the application to different environments and requirements.
 """
 
-MIN_LOOP_DELAY=0.01
-JUMP_SIZE=100
-APP_TIMING_LOG_FILE='app_timings.txt'
+# Timing and loop control constants
+MIN_LOOP_DELAY = 0.01  # Minimum delay between loop iterations to avoid high CPU usage
+JUMP_SIZE = 100  # Number of frames to jump forward/backward in video playback
+APP_TIMING_LOG_FILE = 'app_timings.txt'  # Path to log file for application timing
 
-ASPECT_RATIO = (16, 9)  # Example aspect ratio for cropping (you can modify this)
-LOOP_DELAY=0.05
-YOLO_PT_SEG_MODEL_PATH='yolo_pt_models/yolov8n-seg.pt'
+# Image and video processing parameters
+ASPECT_RATIO = (16, 9)  # Desired aspect ratio for cropping frames
+LOOP_DELAY = 0.05  # Standard delay between loop iterations
 
-ICON_RIGHT_FOLDER = "/home/hailopi/Ad-matay/corners/break/right"
-ICON_LEFT_FOLDER = "/home/hailopi/Ad-matay/corners/break/left"
+# YOLO model configuration
+YOLO_PT_SEG_MODEL_PATH = 'yolo_pt_models/yolov8n-seg.pt'  # Path to YOLOv8 segmentation model
 
-DINO_FEATURES_LEFT_PATH='dino_feature_extractor/example_features_dino_left.pkl'
-DINO_FEATURES_RIGHT_PATH='dino_feature_extractor/example_features_dino_right.pkl'
-LPR_EXAMPLE_TESTING_VIDEO_PATH='/home/hailopi/Ad-matay/video_input_examples/from_adb/ad2c.mp4'  # Replace with video file path or use 0 for USB camera
-CONSECUTIVE_FRAMES_TO_TOGGLE=3
-LPRNET_TH=0.6
+# Icon and image directories
+ICON_RIGHT_FOLDER = "/home/hailopi/Ad-matay/corners/break/right"  # Folder for right-side icons
+ICON_LEFT_FOLDER = "/home/hailopi/Ad-matay/corners/break/left"  # Folder for left-side icons
 
-MAIN_EXAMPLE_TESTING_VIDEO_PATH='/home/hailopi/Ad-matay/video_input_examples/hq_tv_on_ads_dup.mp4'
+# Pre-extracted DINO features paths
+DINO_FEATURES_LEFT_PATH = 'dino_feature_extractor/example_features_dino_left.pkl'  # DINO features for left side
+DINO_FEATURES_RIGHT_PATH = 'dino_feature_extractor/example_features_dino_right.pkl'  # DINO features for right side
+
+# Video file paths for testing
+LPR_EXAMPLE_TESTING_VIDEO_PATH = '/home/hailopi/Ad-matay/video_input_examples/from_adb/ad2c.mp4'  # LPR testing video
+MAIN_EXAMPLE_TESTING_VIDEO_PATH = '/home/hailopi/Ad-matay/video_input_examples/hq_tv_on_ads_dup.mp4'  # Main testing video
+
+# Application parameters
+CONSECUTIVE_FRAMES_TO_TOGGLE = 3  # Frames needed to trigger toggle
+LPRNET_TH = 0.6  # Threshold for LPR network detection confidence
