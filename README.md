@@ -2,6 +2,8 @@
 
 An app that allows skipping commercial break on recorded TV shows by using computer vision elements.
 
+I first thought of it about 2 years ago, but I ditched it too fast to be significant. Back then I made a little presentation of my blueprints in order to consult with friends about it, [it is still available here](https://youtu.be/E45f3Y3l9NQ?si=hlVrtUqbBtFeZCYh)
+
 The app relies on the prior knowledge we have on the TV channels, which changes the icons and/or presenting timers on commercial breaks.
 The app allows capturing the content of the TV in several ways (TBD below),
 then uses YOLO and CV methods to isolate the TV and the ROIs.
@@ -32,14 +34,30 @@ Attached is an explained scheme:
 <img src="https://i.imgur.com/DPVruKH.png" width="800"/>
 <img src="https://i.imgur.com/hKqWxGg.png" width="800"/>
 
-#### Why using a single worker per class?
+#### Why using a single worker per class? 
 From the nature of the challenge I am trying to solve, there's no much value for a true real-time process.
 Sampling in a frequency of once a second (or even a once a few seconds) is sufficient for those needs.
 I am using a very small queue (N=1,2) as I couldn't justify piling up frames if I can't process them on the next module in a timely manner.
 The RPI5 has its limitations, and the tv detection plus lpr are taking about 2-3 seconds at the moment.
 
-Further down the roadmap I will convert it to use the Hailo kit and then I expect it to work faster, which will then derive rethinking the workers distribution.
+#### Why Threads vs. Processes?
+1. My app's modules were built to be a part of a larger app, and therefore hogging resources won't be cool at all. Keeping it as a single process will allow lighter HW to use it and also other developers to use multiprocessing in their larger app.
+2. Further down the roadmap I will convert it to use the Hailo kit especially for improving performances and timing, on their documentation they refer to multithreading rather than multiprocessing, so I expect the upgrade and transition to be better this way.
+Anyhow, future improvements will most likely derive rethinking the workers' distribution.
 
+
+## How to setup?
+
+#### Setting up with Linux packages
+
+1. Go to: `cd <repo root>/set_up/install_packages_ <with or without> _versions.sh`
+2. Set permissions: `chmod +x install_packages_ <with or without> _versions.sh`
+3. `./install_packages_ <with or without> _versions.sh`
+
+#### Setting up with conda
+
+1. Install miniforge or some conda suits your devices.
+2. Create virtual env by `conda env create -f set_up/environment.yml`.
 
 ## Frame fetcher
 This module's responsibility is taking the input source and push frames of it into the frame_queue.
@@ -56,7 +74,7 @@ However, many of the content apps for android TV uses SAFE_FLAG to prevent users
 The results are usually black screen with only system icons on it (volume indicator for example).
 That block makes the ADB method to be unreliable for most crowd, but a GREAT option for some (in case the app developers you're using have missed it, or if you are using a rooted android).
 
-![]()
+![](https://github.com/omer-re/Ad-matay/blob/4b9757d5fa1b327cdb24febb1d20a9f4552e2b57/demo_images/adb_locked.png)
 
 
 ## TV detector
@@ -76,6 +94,8 @@ cropping the TV, passing it as an ROI, ignoring the rest.
 #### Multiframe approach
 Assuming enough frames, we can segment the TV by averaging frames and looking for diffs.
 Problem is that on many cases, like news for example, much of the frame is static and therefore diffs aren't shown.
+It can be relevant if we'd like to trade time for compute resources, as it can be applied on a much lighter HW, not using YOLO or such ML/DL methods.
+Diffing>Averaging>Masking it or watershedding it.
 
 ![](https://github.com/omer-re/Ad-matay/blob/637030a5850c258a6f2eb2b0d4387b3e9cbdd8ea/demo_images/50_frames_buffer.png)
 
