@@ -262,21 +262,64 @@ class LPRProcessor(threading.Thread):
 
 # Independent testing of LPRProcessor
 def main():
-    icon_right_folder = "/home/hailopi/Ad-matey/corners/break/right"
+    # Define paths to directories and an example video file or set camera index (e.g., 0 for default camera)
+    icon_right_folder = "/home/hailopi/Ad-matay/corners/break/right"
     icon_left_folder = "/home/hailopi/Ad-matay/corners/break/left"
+    video_source = '/home/hailopi/Ad-matay/video_examples/from_adb/ad2c.mp4'  # Replace with video file path or use 0 for USB camera
 
     # Get all icon images from the left and right directories
     icon_right_paths = get_image_files_from_directory(icon_right_folder)
     icon_left_paths = get_image_files_from_directory(icon_left_folder)
 
-    # Initialize your application (or object with run_lprnet)
-    app = LPRProcessor()
+    # Create input and output queues for the LPRProcessor
+    input_queue = queue.Queue(maxsize=100)
+    output_queue = queue.Queue(maxsize=10)
 
-    # Example of loading a frame (you can use live video frames, or image sequences)
-    frame = cv2.imread('/path/to/frame_image.png')
+    # Initialize the LPRProcessor with input and output queues
+    lpr_processor = LPRProcessor(input_queue, output_queue)
 
-    # Run the LPRNet feature matching on the frame
-    app.run_lprnet(frame, icon_right_paths, icon_left_paths)
+    # Open the video source (camera or video file)
+    cap = cv2.VideoCapture(video_source)
+    if not cap.isOpened():
+        print(f"Failed to open video source: {video_source}")
+        return
+
+    # Start the LPRProcessor thread
+    lpr_processor.start()
+
+    try:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                print("Failed to read frame or end of video reached.")
+                break
+
+            # Put the frame into the input queue for processing
+            if not input_queue.full():
+                input_queue.put((frame, frame))
+
+            # Check if there's a processed frame in the output queue
+            if not output_queue.empty():
+                processed_frame = output_queue.get()
+                if processed_frame is not None:
+                    # Display the processed frame
+                    cv2.imshow("Processed Frame", processed_frame)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+
+            time.sleep(LOOP_DELAY)
+
+    except KeyboardInterrupt:
+        print("Interrupted by user.")
+
+    finally:
+        # Release resources and stop the processor
+        cap.release()
+        lpr_processor.stop()
+        lpr_processor.join()
+        cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     main()
+

@@ -325,7 +325,8 @@ def main():
 
     try:
         # For testing purposes, use VideoCapture to feed frames into the input queue
-        capture = cv2.VideoCapture('http://192.168.1.195:4747/video')  # Change to a video file path if needed
+        # capture = cv2.VideoCapture('http://192.168.1.195:4747/video')  # Change to a video file path if needed
+        capture = cv2.VideoCapture(0)  # Change to a video file path if needed
         while True:
             ret, frame = capture.read()
             if not ret:
@@ -342,12 +343,12 @@ def main():
                                thickness=-1)
                 else: print("tv_last_valid_corners is None")
 
-                # cv2.imshow('TV Detection', roi_frame)
-                # if cropped_frame is not None:
-                #     cv2.imshow('Cropped TV', cropped_frame)
+                cv2.imshow('TV Detection', roi_frame)
+                if cropped_frame is not None:
+                    cv2.imshow('Cropped TV', cropped_frame)
 
-            # if cv2.waitKey(1) & 0xFF == ord('q'):
-            #     break
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
     except KeyboardInterrupt:
         pass
