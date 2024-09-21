@@ -67,7 +67,7 @@ For example, another app that preform parental control can use the input simulta
 That is obviously a context related tradeoff I made, while other needs might require 0 frame drops which derives different solutions.
 - It allows using parallelism relatively easy as there's no need for many shared resources.
 - Using the queues has the by-product of "ZOH" (zero order hold), meaning that we can still hold the last valid input until new updates arrives.
-
+- **REAL OOP**: each class has its own `main()` which allows running and testing it separately and independently. 
 ## High-level block diagram 
 
 Attached is an explained scheme:
@@ -156,6 +156,16 @@ It is relying on the different icons on the top corners and the timer that is us
 Initially I have tried to implement that model using License Plates Recognition, therefore the name.
 LPR has much in common with the need to "understand" what's the timer on the top-left corner is showing.
 I have struggled getting it to preform well and therefore it is currently commented out, meaning that the indication is just binary, whether we're on ads or not.
+(For example, Mnist, EasyOCR, Tesseract are too slow).
+
+There are more "old school" techniques I consider that might resolve it, for example:
+    - KNN for numbers, which are usually standard font.
+    - OCR+refinement for time properties like MM=[0,59]
+    - OCR with "clock obeys time rules" meaning that if it is currently :15,  next sample has X seconds gap,
+    we should expect something in the areas of :15-X seconds.
+    - Old school: Detecting ":" or sampling frequency to detect areas that changes **EXCATLY** every 1 second,
+    considering it as the font color. applying TH/colorspace mask for this color, then we expect text to be contrasted and clearer.
+
 
 The detection is done for each corner independently, 
 each frame's corners are compared to the collection of references I collected in advance.
@@ -164,8 +174,9 @@ The comparison is done by feature extraction with Meta's Dino, then comparing th
 For some noise reduction, I designed it to toggle between Ad - Non-ad only after some N consecutive frames of the same state.
 
 
+
 ### TV Controller
-Once we detected a commercial break, we'd like to skip it.
+Once we detected a commercial break, we'd like to skip it or notifying for it (playing sound alerting that commercial break has passed)
 We can transmit it to the TV using several ways, each simulated the remote control action in a different way:
 - **IR (infra-red) -** good old remote control method. Recording the TV's signal once then reusing it.
   - Pros: 99% of the TVs has IR receiver.
