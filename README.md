@@ -16,18 +16,37 @@ There is an optional functionality for OCR to get the exact skipping required, b
 It includes a testing GUI to examine the process that is also presenting the stages:
 ![](https://github.com/omer-re/Ad-matay/blob/637030a5850c258a6f2eb2b0d4387b3e9cbdd8ea/demo_images/demo_works_7sec_delay.png)
 
+
+# Key concepts
+
+I am a true believer in the ability to innovate using existing building blocks.
+Modern developer's ability to use existing pieces of code and methods, connecting them together in a never-seen-before way to create value.
+I find it fascinating when I run into such plug&play, well built, well explained repo, and therefore I tried to be one.
+
+This can be generalized to a template for "vision triggered apps":
+1. Frames are captured from various sources.
+2. Enhancing, normalizing frames using CV techniques or algebraic transformations.
+3. Feeding frames into first stage which uses fast methods (like YOLO, CV techniques) for initial detection and reducing frames to ROI. 
+This stage requires contextual planing and trade-offs, with some prior knowledge (color spaces for example).
+4. Applying advance, usually slower, methods on the minimized ROIs (like OCR). Minimizing ROIs support both noise-reduction (ignoring false detection) and performances (less area to scan) purposes.
+5. According to results, apply relatively simple logic to trigger actions.
+
+This time it is skipping ads, but it could be easily converted for detecting bus lines numbers, Wolt bikers hiding their IDs or opening a paid parking gate for members' cars only.
+
+
 ## TLDR & Block diagram
 
 The app is designed to be highly modular, and each class was built to allow easy integration for components.
-I have used *consumer-producer* design pattern, and every stage (class) in the process is reading from a cyclic queue, and outputs to another cyclic queue.
-That architecture offers several benefits:
-- allows users to both use my classes in other apps with easy integration.
-- also, adding other modules to use the input in parallel (the queues are readable, input source will not be held preemptively).
-For example, another app that preform parental control can use the input simultaneously.
+I have used *consumer-producer* design pattern, stages have easy communication between them using input and output cyclic queues.
 
+That architecture offers several benefits:
+- Allows users to easily integrate my classes in other apps due to simple i/o.
+- Adding other modules to use the input in parallel (the queues are readable, input source will not be held preemptively).
+For example, another app that preform parental control can use the input simultaneously.
+- Cyclic queues' size can be adjusted, they limit memory resources consumptions even if there are pace differences between stages.
+That is obviously a context related tradeoff I made, while other needs might require 0 frame drops which derives different solutions.
 - It allows using parallelism relatively easy as there's no need for many shared resources.
 - Using the queues has the by-product of "ZOH" (zero order hold), meaning that we can still hold the last valid input until new updates arrives.
-- I chose using multithreading over multiprocessing as some context is shared, but converting it to multiprocessing can be relatively simple (mainly adapting the queues mechanism).
 
 Attached is an explained scheme:
 [Link to PDF for better view](https://drive.google.com/file/d/14PyFBqQjhArn8FWC8BHDP_0aOVB6A2bj/view?usp=sharing)
@@ -40,13 +59,16 @@ Sampling in a frequency of once a second (or even a once a few seconds) is suffi
 I am using a very small queue (N=1,2) as I couldn't justify piling up frames if I can't process them on the next module in a timely manner.
 The RPI5 has its limitations, and the tv detection plus lpr are taking about 2-3 seconds at the moment.
 
-#### Why Threads vs. Processes?
+#### Why Threads over Processes?
 1. My app's modules were built to be a part of a larger app, and therefore hogging resources won't be cool at all. Keeping it as a single process will allow lighter HW to use it and also other developers to use multiprocessing in their larger app.
 2. Further down the roadmap I will convert it to use the Hailo kit especially for improving performances and timing, on their documentation they refer to multithreading rather than multiprocessing, so I expect the upgrade and transition to be better this way.
 Anyhow, future improvements will most likely derive rethinking the workers' distribution.
 
 
-## How to setup?
+# Setup
+Please refer to `set_up` dir and create your virtual env. I'd rather use conda, but a venv should do as well.
+I have added the packages (`apt instal...`) list of my device as well, as I ran into some errors while creating it.
+If your env isn't working, consider installing my packages as well.
 
 #### Setting up with Linux packages
 
@@ -58,6 +80,7 @@ Anyhow, future improvements will most likely derive rethinking the workers' dist
 
 1. Install miniforge or some conda suits your devices.
 2. Create virtual env by `conda env create -f set_up/environment.yml`.
+
 
 ## Frame fetcher
 This module's responsibility is taking the input source and push frames of it into the frame_queue.
@@ -132,7 +155,3 @@ We can transmit it to the TV using several ways, each simulated the remote contr
   - Cons: Requires direct USB connection from the RPI to the TV, which might limit us, especially if using a usb camera which also requires considering were to place the camera and RPI.
 
 
-# Setup
-Please refer to `set_up` dir and create your virtual env. I'd rather use conda, but a venv should do as well.
-I have added the packages (`apt instal...`) list of my device as well, as I ran into some errors while creating it.
-If your env isn't working, consider installing my packages as well.
