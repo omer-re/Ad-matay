@@ -277,6 +277,7 @@ class TVDetector(threading.Thread):
                     roi_frame = self.detect_tv(frame)  # Detect the TV and mark it on the frame
                     if roi_frame is not None and isinstance(roi_frame, np.ndarray):
                         # print(f"TVDetector: Processed ROI Frame dimensions: {roi_frame.shape}")
+                        pass
                     else:
                         print("TVDetector: Invalid ROI Frame detected")
 

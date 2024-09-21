@@ -60,14 +60,17 @@ The app is designed to be highly modular, and each class was built to allow easy
 I have used *consumer-producer* design pattern, stages have easy communication between them using input and output cyclic queues.
 
 That architecture offers several benefits:
-- Allows users to easily integrate my classes in other apps due to simple i/o.
-- Adding other modules to use the input in parallel (the queues are readable, input source will not be held preemptively).
+
+ - Allows users to easily integrate my classes in other apps due to simple i/o.
+ - Adding other modules to use the input in parallel (the queues are readable, input source will not be held preemptively).
 For example, another app that preform parental control can use the input simultaneously.
-- Cyclic queues' size can be adjusted, they limit memory resources consumptions even if there are pace differences between stages.
+ - Cyclic queues' size can be adjusted, they limit memory resources consumptions even if there are pace differences between stages.
 That is obviously a context related tradeoff I made, while other needs might require 0 frame drops which derives different solutions.
-- It allows using parallelism relatively easy as there's no need for many shared resources.
-- Using the queues has the by-product of "ZOH" (zero order hold), meaning that we can still hold the last valid input until new updates arrives.
-- **REAL OOP**: each class has its own `main()` which allows running and testing it separately and independently. 
+ - It allows using parallelism relatively easy as there's no need for many shared resources.
+ - Using the queues has the by-product of "ZOH" (zero order hold), meaning that we can still hold the last valid input until new updates arrives.
+ - **REAL OOP**: each class has its own `main()` which allows running and testing it separately and independently.
+
+
 ## High-level block diagram 
 
 Attached is an explained scheme:
