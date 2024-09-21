@@ -16,6 +16,24 @@ There is an optional functionality for OCR to get the exact skipping required, b
 It includes a testing GUI to examine the process that is also presenting the stages:
 ![](https://github.com/omer-re/Ad-matay/blob/637030a5850c258a6f2eb2b0d4387b3e9cbdd8ea/demo_images/demo_works_7sec_delay.png)
 
+## Table of Contents
+
+1. [Key concepts](#key-concepts)
+2. [Design](#design)
+3. [High-level block diagram](#high-level-block-diagram)
+   - [Why using a single worker per class?](#why-using-a-single-worker-per-class)
+   - [Why Threads over Processes?](#why-threads-over-processes)
+4. [Setup](#setup)
+   - [Setting up with Linux packages](#setting-up-with-linux-packages)
+   - [Setting up with conda](#setting-up-with-conda)
+5. [Modules](#modules)
+   - [Frame fetcher](#frame-fetcher)
+     - [Why not using the ADB snapshot as default?](#why-not-using-the-adb-snapshot-as-default)
+   - [TV detector](#tv-detector)
+     - [Multiframe approach](#multiframe-approach)
+   - [LPR](#lpr)
+   - [TV Controller](#tv-controller)
+   
 
 # Key concepts
 
@@ -33,8 +51,6 @@ This stage requires contextual planing and trade-offs, with some prior knowledge
 
 This time it is skipping ads, but it could be easily converted for detecting bus lines numbers, Wolt bikers hiding their IDs or opening a paid parking gate for members' cars only.
 
-
-## TLDR & Block diagram
 
 ## Design
 
@@ -86,7 +102,11 @@ If your env isn't working, consider installing my packages as well.
 2. Create virtual env by `conda env create -f set_up/environment.yml`.
 
 
-## Frame fetcher
+## Modules
+Please note that each module contains `main()` function to allow testing its basic functionalities independently,
+meaning that you can run `(<conda _env) python tv_detector.py` for example.
+
+### Frame fetcher
 This module's responsibility is taking the input source and push frames of it into the frame_queue.
 Input sources can vary: USB camera, IP Camera, Pre-recorded video file, HDMI stream, ADB snapshots.
 The purpose is to allow the users to use whatever is easier for them to do.
@@ -104,7 +124,7 @@ That block makes the ADB method to be unreliable for most crowd, but a GREAT opt
 ![](https://github.com/omer-re/Ad-matay/blob/4b9757d5fa1b327cdb24febb1d20a9f4552e2b57/demo_images/adb_locked.png)
 
 
-## TV detector
+### TV detector
 Given a frame from a camera which contains the TV, we'd like to detect the corners of the screen in order to normalize and transform.
 That's not that simple, as even YOLO8 segmentation models tend to miss some of the TV, even in a relatively good conditions.
 Unfortunately, the misses are usually on the top-bottom edges, where most of our data is:
@@ -127,7 +147,7 @@ Diffing>Averaging>Masking it or watershedding it.
 ![](https://github.com/omer-re/Ad-matay/blob/637030a5850c258a6f2eb2b0d4387b3e9cbdd8ea/demo_images/50_frames_buffer.png)
 
 
-## LPR
+### LPR
 This module is built to indicate whether we are currently watching ads or not.
 It is relying on the different icons on the top corners and the timer that is usually presented, counting down back to the show.
 
@@ -142,7 +162,7 @@ The comparison is done by feature extraction with Meta's Dino, then comparing th
 For some noise reduction, I designed it to toggle between Ad - Non-ad only after some N consecutive frames of the same state.
 
 
-## TV Controller
+### TV Controller
 Once we detected a commercial break, we'd like to skip it.
 We can transmit it to the TV using several ways, each simulated the remote control action in a different way:
 - **IR (infra-red) -** good old remote control method. Recording the TV's signal once then reusing it.
