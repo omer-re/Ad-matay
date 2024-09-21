@@ -17,7 +17,7 @@ def main():
     processed_queue = queue.Queue(maxsize=1)  # Queue for processed frames
 
     # Input source: This can be an IP, a USB camera index, or a file path.
-    input_source = '/home/hailopi/Ad-matay/video_examples/hq_tv_on_ads_dup.mp4'  # Example video file
+    input_source = '/home/hailopi/Ad-matay/video_input_examples/hq_tv_on_ads_dup.mp4'  # Example video file
     # input_source=0 # for USB cam
 
     # Initialize the workers

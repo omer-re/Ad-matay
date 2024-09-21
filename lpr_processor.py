@@ -265,7 +265,7 @@ def main():
     # Define paths to directories and an example video file or set camera index (e.g., 0 for default camera)
     icon_right_folder = "/home/hailopi/Ad-matay/corners/break/right"
     icon_left_folder = "/home/hailopi/Ad-matay/corners/break/left"
-    video_source = '/home/hailopi/Ad-matay/video_examples/from_adb/ad2c.mp4'  # Replace with video file path or use 0 for USB camera
+    video_source = '/home/hailopi/Ad-matay/video_input_examples/from_adb/ad2c.mp4'  # Replace with video file path or use 0 for USB camera
 
     # Get all icon images from the left and right directories
     icon_right_paths = get_image_files_from_directory(icon_right_folder)

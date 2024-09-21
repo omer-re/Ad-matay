@@ -29,7 +29,7 @@ LONG_INTERVAL = 10000  # Long interval for certain operations
 
 
 # Path to the video file
-VIDEO_FILE_PATH = "../video_examples/tv_on_noon_ads_ch12.mp4"
+VIDEO_FILE_PATH = "../video_input_examples/tv_on_noon_ads_ch12.mp4"
 cap = cv2.VideoCapture(VIDEO_FILE_PATH)
 
 if not cap.isOpened():
