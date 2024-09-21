@@ -56,6 +56,8 @@ However, many of the content apps for android TV uses SAFE_FLAG to prevent users
 The results are usually black screen with only system icons on it (volume indicator for example).
 That block makes the ADB method to be unreliable for most crowd, but a GREAT option for some (in case the app developers you're using have missed it, or if you are using a rooted android).
 
+![]()
+
 
 ## TV detector
 Given a frame from a camera which contains the TV, we'd like to detect the corners of the screen in order to normalize and transform.
