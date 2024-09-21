@@ -7,9 +7,8 @@ from tv_detector import TVDetector
 from lpr_processor import LPRProcessor
 from app_utils import *
 
-MIN_LOOP_DELAY=0.01
-JUMP_SIZE=100
-APP_TIMING_LOG_FILE='app_timings.txt'
+from constants import *
+
 
 def main():
     frame_queue = queue.Queue(maxsize=1)

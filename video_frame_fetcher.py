@@ -3,8 +3,8 @@ import threading
 import queue
 import time
 from app_utils import *
+from constants import *
 
-LOOP_DELAY=0.05
 
 class VideoFrameFetcher(threading.Thread):
     def __init__(self, video_source, output_queue):
@@ -104,7 +104,15 @@ class VideoFrameFetcher(threading.Thread):
                 f.write(f"{class_name}:\t{func_name}:\t{elapsed_time:.3f} seconds\n")
 
     def jump_forward(self, frames=100):
-        """Jump forward by the specified number of frames."""
+        """
+        Skips forward by a specified number of frames in the video.
+
+        Args:
+            frames (int): Number of frames to skip forward.
+
+        Raises:
+            ValueError: If the video capture is not initialized.
+        """
         if self.capture:
             current_frame = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
             total_frames = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))

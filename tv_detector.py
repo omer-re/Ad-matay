@@ -5,10 +5,9 @@ import queue
 import time
 from ultralytics import YOLO
 from app_utils import *
-
+from constants import *
 #         self.segmentation_model = YOLO('yolov8n-seg.pt')  # YOLO segmentation model
-ASPECT_RATIO = (16, 9)  # Example aspect ratio for cropping (you can modify this)
-LOOP_DELAY=0.05
+
 class TVDetector(threading.Thread):
     def __init__(self, input_queue, output_queue, is_adb=False):
         """
@@ -18,7 +17,7 @@ class TVDetector(threading.Thread):
         :param output_queue: Queue to which the TVDetector will pass frames with ROI marked.
         """
         super().__init__()
-        self.segmentation_model = YOLO('yolo_pt_models/yolov8n-seg.pt')  # YOLO segmentation model
+        self.segmentation_model = YOLO(YOLO_PT_SEG_MODEL_PATH)  # YOLO segmentation model
         self.input_queue = input_queue
         self.output_queue = output_queue
         self.running = True
@@ -34,10 +33,16 @@ class TVDetector(threading.Thread):
     @time_logger('timing_info')
     def detect_tv(self, frame):
         """
-        Uses YOLOv8 segmentation model to detect the TV in the frame and mark the largest one as the ROI.
-        Also processes the mask to find the corners of the detected TV.
-        :param frame: The input frame from the video stream.
-        :return: The frame with the largest detected TV region and its corners marked, or the original frame if no TV is found.
+        Detects the largest TV screen in the given frame using YOLOv8 segmentation.
+
+        Args:
+            frame (numpy.ndarray): The input video frame for detection.
+
+        Returns:
+            numpy.ndarray: Frame with TV region marked, or original frame if no TV is detected.
+
+        Raises:
+            ValueError: If the input frame is not a valid numpy array.
         """
         self.current_raw_frame = frame.copy()  # Store the raw frame
         results = self.segmentation_model(frame)  # Perform inference on the frame
@@ -210,9 +215,13 @@ class TVDetector(threading.Thread):
     @time_logger('timing_info')
     def apply_perspective_transform_and_crop(self, target_aspect_ratio=ASPECT_RATIO):
         """
-        Apply perspective transform to the detected TV corners and crop the image.
-        :param target_aspect_ratio: The aspect ratio for the cropped image.
-        :return: Cropped and transformed image based on the TV's perspective.
+         Applies a perspective transformation to the detected TV corners and crops the image to the desired aspect ratio.
+
+         Args:
+             target_aspect_ratio (tuple): Desired width-to-height ratio for the cropped image.
+
+         Returns:
+             numpy.ndarray: Transformed and cropped image, or None if no valid corners are detected.
         """
         if self.tv_last_valid_corners is None:
             return None  # No valid corners, can't apply perspective transform

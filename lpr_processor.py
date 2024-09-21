@@ -13,10 +13,9 @@ import matplotlib.pyplot as plt
 from app_utils import *
 import easyocr
 import re
+from constants import *
 
 
-
-LOOP_DELAY=0.05
 # Load the DINO ResNet-50 model
 model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
 model.eval()  # Set model to evaluation mode
@@ -41,11 +40,16 @@ reader = easyocr.Reader(['en'], gpu=False)
 
 def extract_text_from_corner(top_left_corner):
     """
-    Function to perform OCR on the top-left corner and return the detected text if it contains at least 2 digits.
-    :param top_left_corner: The image region (numpy array) containing the top-left corner.
-    :return: Detected text containing at least 2 digits, or an empty string if no such text is found.
+    Extracts text from the given corner image using OCR.
+
+    Args:
+        top_left_corner (numpy.ndarray): Image of the top-left corner of the TV.
+
+    Returns:
+        str: Extracted text containing at least 2 digits, or an empty string if no text is found.
     """
     return ''
+    # OCR logic commented out for performance reasons.
     try:
         # Convert the OpenCV image (BGR) to RGB format for EasyOCR
         top_left_corner_rgb = cv2.cvtColor(top_left_corner, cv2.COLOR_BGR2RGB)
@@ -105,15 +109,15 @@ class LPRProcessor(threading.Thread):
         self.buffer_limit = 2  # Require N consecutive frames to confirm state
 
         # Load the precomputed example features (new DINO features)
-        with open('dino_feature_extractor/example_features_dino_right.pkl', 'rb') as f_right:
+        with open(DINO_FEATURES_RIGHT_PATH, 'rb') as f_right:
             self.example_features_right = pickle.load(f_right)
 
-        with open('dino_feature_extractor/example_features_dino_left.pkl', 'rb') as f_left:
+        with open(DINO_FEATURES_LEFT_PATH, 'rb') as f_left:
             self.example_features_left = pickle.load(f_left)
 
         # Restore icon paths initialization
-        icon_right_folder = "/home/hailopi/Ad-matay/corners/break/right"
-        icon_left_folder = "/home/hailopi/Ad-matay/corners/break/left"
+        icon_right_folder = ICON_RIGHT_FOLDER
+        icon_left_folder = ICON_LEFT_FOLDER
         self.icon_right_paths = get_image_files_from_directory(icon_right_folder)
         self.icon_left_paths = get_image_files_from_directory(icon_left_folder)
 
@@ -154,6 +158,16 @@ class LPRProcessor(threading.Thread):
 
     @time_logger('timing_info')
     def run_lprnet(self, cropped_frame, threshold=0.65):
+        """
+        Processes the given frame to determine if it shows an advertisement based on pre-trained DINO features.
+
+        Args:
+            cropped_frame (numpy.ndarray): The image frame containing the TV area.
+            threshold (float): The similarity threshold for ad detection.
+
+        Returns:
+            numpy.ndarray: Frame with detections marked, or None if input is invalid.
+        """
         if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
             print("Invalid cropped_frame passed to LPRNet. Skipping.")
             return None
@@ -263,9 +277,9 @@ class LPRProcessor(threading.Thread):
 # Independent testing of LPRProcessor
 def main():
     # Define paths to directories and an example video file or set camera index (e.g., 0 for default camera)
-    icon_right_folder = "/home/hailopi/Ad-matay/corners/break/right"
-    icon_left_folder = "/home/hailopi/Ad-matay/corners/break/left"
-    video_source = '/home/hailopi/Ad-matay/video_input_examples/from_adb/ad2c.mp4'  # Replace with video file path or use 0 for USB camera
+    icon_right_folder = ICON_RIGHT_FOLDER
+    icon_left_folder = ICON_LEFT_FOLDER
+    video_source = LPR_EXAMPLE_TESTING_VIDEO_PATH # Replace with video file path or use 0 for USB camera
 
     # Get all icon images from the left and right directories
     icon_right_paths = get_image_files_from_directory(icon_right_folder)
