@@ -83,7 +83,7 @@ That's not that simple, as even YOLO8 segmentation models tend to miss some of t
 Unfortunately, the misses are usually on the top-bottom edges, where most of our data is:
 Using bigger YoloV8 models had the same problem, therefore I returned using nano.
 
-![](https://github.com/omer-re/Ad-matay/blob/b7c23c629b57d6d012ebcde93509c4b31c0a8016/demo_images/mask_tv_challenge4.png)
+![](https://github.com/omer-re/Ad-matay/blob/4b9757d5fa1b327cdb24febb1d20a9f4552e2b57/demo_images/mask_tv_challenge4.png)
 
 The solution I have used is a multi-stage approach, where I use the Yolo segment but also refining it with basic CV methods of corner detection.
 Once corners are detected, we can ues perspective transform to make the side-view a straight rectangle,
