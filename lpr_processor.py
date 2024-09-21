@@ -41,6 +41,14 @@ reader = easyocr.Reader(['en'], gpu=False)
 def extract_text_from_corner(top_left_corner):
     """
     Extracts text from the given corner image using OCR.
+    #TODO: better. faster OCR methods:
+    - OCR+refinement for time properties like MM=[0,59]
+    - OCR with "clock obeys time rules" meaning that if it is currently :15,  next sample has X seconds gap,
+    we should expect something in the areas of :15-X seconds.
+    - Old school: Detecting ":" or sampling frequency to detect areas that changes EXCATLY every 1 second,
+    considering it as the font color. applying TH/colorspace mask for this color, then we expect text to be contrasted and clearer.
+
+
 
     Args:
         top_left_corner (numpy.ndarray): Image of the top-left corner of the TV.
@@ -106,7 +114,7 @@ class LPRProcessor(threading.Thread):
         # Variables to track the result state and buffer count
         self.buffer_count = 0
         self.current_state = "Loading..."  # Initial state
-        self.buffer_limit = 2  # Require N consecutive frames to confirm state
+        self.buffer_limit = CONSECUTIVE_FRAMES_TO_TOGGLE  # Require N consecutive frames to confirm state
 
         # Load the precomputed example features (new DINO features)
         with open(DINO_FEATURES_RIGHT_PATH, 'rb') as f_right:
@@ -128,21 +136,21 @@ class LPRProcessor(threading.Thread):
             try:
                 if not self.input_queue.empty():
                     roi_frame, cropped_frame = self.input_queue.get()
-                    print("LPRProcessor: Frames received from roi_queue")
+                    # print("LPRProcessor: Frames received from roi_queue")
                     self.input = cropped_frame
                     if cropped_frame is None or not isinstance(cropped_frame, np.ndarray):
                         print(
                             f"LPRProcessor: Invalid cropped_frame type. Expected numpy array, got {type(cropped_frame)}")
                         continue
 
-                    print(f"LPRProcessor: Valid cropped_frame received with dimensions {cropped_frame.shape}")
+                    # print(f"LPRProcessor: Valid cropped_frame received with dimensions {cropped_frame.shape}")
                     # Process the cropped frame
                     self.last_processed_frame = self.run_lprnet(cropped_frame)
 
                     # Put the processed frame in the output queue for further handling or display
                     if self.output_queue and self.last_processed_frame is not None:
                         if not self.output_queue.full():
-                            print("LPRProcessor: Putting processed frame in processed_queue")
+                            # print("LPRProcessor: Putting processed frame in processed_queue")
                             self.output_queue.put(self.last_processed_frame)
                     self.output = add_timing_to_frame(execution_time,self.last_processed_frame.copy())
             except Exception as e:
@@ -157,7 +165,7 @@ class LPRProcessor(threading.Thread):
         print("LPRProcessor stopped")
 
     @time_logger('timing_info')
-    def run_lprnet(self, cropped_frame, threshold=0.65):
+    def run_lprnet(self, cropped_frame, threshold=LPRNET_TH):
         """
         Processes the given frame to determine if it shows an advertisement based on pre-trained DINO features.
 

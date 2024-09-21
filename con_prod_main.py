@@ -10,6 +10,8 @@ from app_utils import *
 from constants import *
 
 
+import pyautogui  # Import to get the screen size
+
 def main():
     frame_queue = queue.Queue(maxsize=1)
     roi_queue = queue.Queue(maxsize=1)
@@ -17,7 +19,7 @@ def main():
 
     # Input source: This can be an IP, a USB camera index, or a file path.
     input_source = '/home/hailopi/Ad-matay/video_input_examples/hq_tv_on_ads_dup.mp4'  # Example video file
-    # input_source=0 # for USB cam
+    # input_source = 0  # for USB cam
 
     # Initialize the workers
     fetcher = VideoFrameFetcher(input_source, frame_queue)
@@ -29,12 +31,19 @@ def main():
     detector.start()
     lpr_processor.start()
 
-    """
-    The testing GUI allows sampling frames from the modules directly,
-    it uses frames' copies inorder to not mess up the original frames while propagating,
-    and it doesn't observe the queues. 
-    """
+    # Default screen size if `pyautogui` is not available
+    screen_width = 1920  # Set manually or based on your screen resolution
+    screen_height = 1080  # Set manually or based on your screen resolution
+
+    # Calculate window width as half of screen width
+    window_width = screen_width // 2
+    window_height = int(window_width * 0.75)  # Keeping a 4:3 aspect ratio for window height
+
     target_width, target_height = 640, 480  # Set the standard size for all frames for the testing GUI window only
+
+    # Set up the named window and resize it
+    cv2.namedWindow('Testing GUI', cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('Testing GUI', window_width, window_height)
 
     try:
         while True:
@@ -48,7 +57,7 @@ def main():
             detector_input = detector.input if detector.input is not None else black_frame
             detector_output = detector.output if detector.output is not None else black_frame
 
-            # LPR Processor frames
+            # LPR Processor frames (initialize lpr_output correctly)
             lpr_input = lpr_processor.input if lpr_processor.input is not None else black_frame
             lpr_output = lpr_processor.output if lpr_processor.output is not None else black_frame
 
@@ -85,7 +94,6 @@ def main():
             if key == ord('r'):
                 fetcher.restart_video()
 
-
             # Press '>' to jump forward by frames
             if key == ord('>'):
                 fetcher.jump_forward(JUMP_SIZE)
@@ -101,12 +109,6 @@ def main():
 
     finally:
         # Stop all threads and clean up
-        """
-        the `finally` block here because it provides more control and guarantees that 
-        the cleanup operations will be executed even if exceptions occur. 
-        This is especially important in multithreaded applications like this one, 
-        where thread termination and resource cleanup need to be handled predictably.
-        """
         fetcher.stop()
         detector.stop()
         lpr_processor.stop()

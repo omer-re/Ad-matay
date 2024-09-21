@@ -215,13 +215,9 @@ class TVDetector(threading.Thread):
     @time_logger('timing_info')
     def apply_perspective_transform_and_crop(self, target_aspect_ratio=ASPECT_RATIO):
         """
-         Applies a perspective transformation to the detected TV corners and crops the image to the desired aspect ratio.
-
-         Args:
-             target_aspect_ratio (tuple): Desired width-to-height ratio for the cropped image.
-
-         Returns:
-             numpy.ndarray: Transformed and cropped image, or None if no valid corners are detected.
+        Apply perspective transform to the detected TV corners and crop the image.
+        :param target_aspect_ratio: The aspect ratio for the cropped image.
+        :return: Cropped and transformed image based on the TV's perspective.
         """
         if self.tv_last_valid_corners is None:
             return None  # No valid corners, can't apply perspective transform
@@ -272,26 +268,26 @@ class TVDetector(threading.Thread):
 
         while self.running:
             try:
-                print("TVDetector: run()")
+                # print("TVDetector: run()")
                 if not self.input_queue.empty():
                     frame = self.input_queue.get()
                     self.input=frame
-                    print("TVDetector: Frame received from frame_queue")
+                    # print("TVDetector: Frame received from frame_queue")
 
                     roi_frame = self.detect_tv(frame)  # Detect the TV and mark it on the frame
                     if roi_frame is not None and isinstance(roi_frame, np.ndarray):
-                        print(f"TVDetector: Processed ROI Frame dimensions: {roi_frame.shape}")
+                        # print(f"TVDetector: Processed ROI Frame dimensions: {roi_frame.shape}")
                     else:
                         print("TVDetector: Invalid ROI Frame detected")
 
                     # Optionally apply perspective transformation and cropping
                     cropped_frame = self.apply_perspective_transform_and_crop()
                     # Put both the roi_frame and cropped_frame in roi_queue
-                    print("TVDetector: Putting ROI Frame and Cropped Frame in roi_queue")
+                    # print("TVDetector: Putting ROI Frame and Cropped Frame in roi_queue")
                     self.output=add_timing_to_frame(execution_time, roi_frame.copy())
 
                     if not self.output_queue.full():
-                        print("TVDetector: 267 Queue full")
+                        # print("TVDetector: 267 Queue full")
                         self.output_queue.put((roi_frame, cropped_frame))
                     else:
                         self.output_queue.get()  # Remove old frame if queue is full
