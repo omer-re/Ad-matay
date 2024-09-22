@@ -14,6 +14,8 @@ APP_TIMING_LOG_FILE = 'app_timings.txt'  # Path to log file for application timi
 # Image and video processing parameters
 ASPECT_RATIO = (16, 9)  # Desired aspect ratio for cropping frames
 LOOP_DELAY = 0.05  # Standard delay between loop iterations
+TARGET_WIDTH = 640
+TARGET_HEIGHT = int(TARGET_WIDTH * ASPECT_RATIO[1] / ASPECT_RATIO[0])
 
 # YOLO model configuration
 YOLO_PT_SEG_MODEL_PATH = 'yolo_pt_models/yolov8n-seg.pt'  # Path to YOLOv8 segmentation model
@@ -29,6 +31,7 @@ DINO_FEATURES_RIGHT_PATH = 'dino_feature_extractor/example_features_dino_right.p
 # Video file paths for testing
 LPR_EXAMPLE_TESTING_VIDEO_PATH = '/home/hailopi/Ad-matay/video_input_examples/from_adb/ad2c.mp4'  # LPR testing video
 MAIN_EXAMPLE_TESTING_VIDEO_PATH = '/home/hailopi/Ad-matay/video_input_examples/hq_tv_on_ads_dup.mp4'  # Main testing video
+OUTPUT_VIDEO_PATH='/home/hailopi/Ad-matay/demo_images/app_demo_gui_mute.mp4'
 
 # Application parameters
 CONSECUTIVE_FRAMES_TO_TOGGLE = 3  # Frames needed to trigger toggle
