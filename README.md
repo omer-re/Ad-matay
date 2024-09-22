@@ -11,7 +11,7 @@ The ROIs for our case are the top-left, top-right corners, which are then compar
 There is an optional functionality for OCR to get the exact skipping required, but it is currently too slow and therefore commented-out.
 
 
-![](https://github.com/omer-re/Ad-matay/blob/637030a5850c258a6f2eb2b0d4387b3e9cbdd8ea/demo_images/Ad-Matay%20simple%20demo%20image.png)
+![](demo_images/Ad-Matay%20simple%20demo%20image.png)
 
 It includes a testing GUI to examine the process that is also presenting the stages:
 
@@ -78,7 +78,7 @@ That is obviously a context related tradeoff I made, while other needs might req
 Attached is an explained scheme:
 [Link to PDF for better view](https://drive.google.com/file/d/14PyFBqQjhArn8FWC8BHDP_0aOVB6A2bj/view?usp=sharing)
 <img src="https://i.imgur.com/DPVruKH.png" width="800"/>
-<img src="https://i.imgur.com/hKqWxGg.png" width="800"/>
+<img src="demo_images/Ad-Matay%20simple%20demo%20image.png" width="800"/>
 
 #### Why using a single worker per class? 
 From the nature of the challenge I am trying to solve, there's no much value for a true real-time process.
@@ -111,7 +111,7 @@ If your env isn't working, consider installing my packages as well.
 
 ## Modules
 Please note that each module contains `main()` function to allow testing its basic functionalities independently,
-meaning that you can run `(<conda _env) python tv_detector.py` for example.
+meaning that you can run `(<conda _env>) python tv_detector.py` for example.
 
 ### Frame fetcher
 This module's responsibility is taking the input source and push frames of it into the frame_queue.
