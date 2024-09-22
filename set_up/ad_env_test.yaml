@@ -156,6 +156,7 @@ dependencies:
   - pyarrow=17.0.0=py310h36e1b2c_1
   - pyarrow-core=17.0.0=py310h636e2c8_1_cpu
   - pyarrow-hotfix=0.6=pyhd8ed1ab_0
+  - pyautogui=0.9.54
   - pycparser=2.22=pyhd8ed1ab_0
   - pyparsing=3.1.4=pyhd8ed1ab_0
   - pyside6=6.7.2=py310h5a2e0b3_2

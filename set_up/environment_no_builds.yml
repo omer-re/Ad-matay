@@ -154,6 +154,7 @@ dependencies:
   - pixman=0.43.4
   - pthread-stubs=0.4
   - pyarrow=17.0.0
+  - pyautogui=0.9.54
   - pyarrow-core=17.0.0
   - pyarrow-hotfix=0.6
   - pycparser=2.22

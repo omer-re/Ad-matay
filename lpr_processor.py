@@ -11,9 +11,18 @@ import torchvision.transforms as transforms
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from app_utils import *
-import easyocr
 import re
 from constants import *
+# Attempt to import EasyOCR and handle the case where it is not available
+try:
+    import easyocr
+    # Initialize the EasyOCR reader globally if the module is available
+    reader = easyocr.Reader(['en'], gpu=False)
+except ImportError:
+    print("EasyOCR is not installed. OCR functionalities will be disabled.")
+    easyocr = None  # Set easyocr to None so it can be checked later
+    reader = None  # Set reader to None so it can be checked later
+
 
 
 # Load the DINO ResNet-50 model
@@ -35,8 +44,6 @@ import PIL
 # Use Image.LANCZOS for resizing, no need for version check
 # ANTIALIAS = Image.LANCZOS
 
-# Initialize the EasyOCR reader globally (to avoid re-initializing each time the function is called)
-reader = easyocr.Reader(['en'], gpu=False)
 
 def extract_text_from_corner(top_left_corner):
     """
@@ -56,30 +63,37 @@ def extract_text_from_corner(top_left_corner):
     Returns:
         str: Extracted text containing at least 2 digits, or an empty string if no text is found.
     """
+
     return ''
     # OCR logic commented out for performance reasons.
-    try:
-        # Convert the OpenCV image (BGR) to RGB format for EasyOCR
-        top_left_corner_rgb = cv2.cvtColor(top_left_corner, cv2.COLOR_BGR2RGB)
 
-        # Perform OCR on the corner
-        ocr_result = reader.readtext(top_left_corner_rgb)
-
-        # Initialize an empty string to store the final result
-        ocr_text = ""
-
-        if ocr_result:
-            for bbox, text, score in ocr_result:
-                print(f'\nXX OCR {text=}\n')
-                # Check if the text contains at least 2 digits
-                digit_count = len(re.findall(r'\d', text))
-                if digit_count >= 2:
-                    ocr_text = text  # Store the first valid result that contains at least 2 digits
-                    break  # Stop after finding the first valid result
-        return ocr_text  # Return the text if found, otherwise return empty string
-    except Exception as e:
-        print(f"Error in OCR extraction: {e}")
-        return ""  # Return an empty string if an error occurs
+    # # Check if the reader is initialized
+    # if reader is None:
+    #     print("OCR functionality is disabled. EasyOCR module is not available.")
+    #     return ""
+    #
+    # try:
+    #     # Convert the OpenCV image (BGR) to RGB format for EasyOCR
+    #     top_left_corner_rgb = cv2.cvtColor(top_left_corner, cv2.COLOR_BGR2RGB)
+    #
+    #     # Perform OCR on the corner
+    #     ocr_result = reader.readtext(top_left_corner_rgb)
+    #
+    #     # Initialize an empty string to store the final result
+    #     ocr_text = ""
+    #
+    #     if ocr_result:
+    #         for bbox, text, score in ocr_result:
+    #             print(f'\nXX OCR {text=}\n')
+    #             # Check if the text contains at least 2 digits
+    #             digit_count = len(re.findall(r'\d', text))
+    #             if digit_count >= 2:
+    #                 ocr_text = text  # Store the first valid result that contains at least 2 digits
+    #                 break  # Stop after finding the first valid result
+    #     return ocr_text  # Return the text if found, otherwise return empty string
+    # except Exception as e:
+    #     print(f"Error in OCR extraction: {e}")
+    #     return ""  # Return an empty string if an error occurs
 
 # Function to extract features from an input image using DINO ResNet-50
 def extract_features(image):
