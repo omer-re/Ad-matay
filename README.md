@@ -15,8 +15,9 @@ There is an optional functionality for OCR to get the exact skipping required, b
 
 It includes a testing GUI to examine the process that is also presenting the stages:
 
-
 ![](https://github.com/omer-re/Ad-matay/blob/892f3eb6742470a26b130ccf675cad70049b63a9/demo_images/app_demo_gui_mute.gif)
+
+![LINK TO VIDEO OF THAT GIF](https://github.com/omer-re/Ad-matay/blob/892f3eb6742470a26b130ccf675cad70049b63a9/demo_images/app_demo_gui_mute.mp4)
 
 ## Table of Contents
 
