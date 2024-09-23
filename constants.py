@@ -10,7 +10,7 @@ as needed to adapt the application to different environments and requirements.
 MIN_LOOP_DELAY = 0.01  # Minimum delay between loop iterations to avoid high CPU usage
 JUMP_SIZE = 100  # Number of frames to jump forward/backward in video playback
 APP_TIMING_LOG_FILE = 'app_timings.txt'  # Path to log file for application timing
-QUEUES_SIZE=2 # 2 will prevent race for resources and deadlocks as writing is separated from reading
+QUEUES_SIZE= 2 # 2 will prevent race for resources and deadlocks as writing is separated from reading
 
 # Image and video processing parameters
 ASPECT_RATIO = (16, 9)  # Desired aspect ratio for cropping frames
@@ -32,7 +32,7 @@ DINO_FEATURES_RIGHT_PATH = 'dino_feature_extractor/example_features_dino_right.p
 # Video file paths for testing
 LPR_EXAMPLE_TESTING_VIDEO_PATH = '/home/hailopi/Ad-matay/video_input_examples/from_adb/ad2c.mp4'  # LPR testing video
 MAIN_EXAMPLE_TESTING_VIDEO_PATH = '/home/hailopi/Ad-matay/video_input_examples/hq_tv_on_ads_dup.mp4'  # Main testing video
-OUTPUT_VIDEO_PATH='/home/hailopi/Ad-matay/demo_images/app_demo_gui_mute.mp4'
+OUTPUT_VIDEO_PATH='/home/hailopi/Ad-matay/demo_images/app_demo_gui_last_run.mp4'
 
 # Application parameters
 CONSECUTIVE_FRAMES_TO_TOGGLE = 3  # Frames needed to trigger toggle
