@@ -10,6 +10,7 @@ as needed to adapt the application to different environments and requirements.
 MIN_LOOP_DELAY = 0.01  # Minimum delay between loop iterations to avoid high CPU usage
 JUMP_SIZE = 100  # Number of frames to jump forward/backward in video playback
 APP_TIMING_LOG_FILE = 'app_timings.txt'  # Path to log file for application timing
+QUEUES_SIZE=2 # 2 will prevent race for resources and deadlocks as writing is separated from reading
 
 # Image and video processing parameters
 ASPECT_RATIO = (16, 9)  # Desired aspect ratio for cropping frames

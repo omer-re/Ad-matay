@@ -8,9 +8,9 @@ from app_utils import *
 from constants import *
 
 def main():
-    frame_queue = queue.Queue(maxsize=1)
-    roi_queue = queue.Queue(maxsize=1)
-    processed_queue = queue.Queue(maxsize=1)  # Queue for processed frames
+    frame_queue = queue.Queue(maxsize=QUEUES_SIZE)
+    roi_queue = queue.Queue(maxsize=QUEUES_SIZE)
+    processed_queue = queue.Queue(maxsize=QUEUES_SIZE)  # Queue for processed frames
 
     # Input source: This can be an IP, a USB camera index, or a file path.
     input_source = MAIN_EXAMPLE_TESTING_VIDEO_PATH  # Use the constant from constants.py
